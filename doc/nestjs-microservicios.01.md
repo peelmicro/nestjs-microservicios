@@ -496,14 +496,67 @@ nothing added to commit but untracked files present (use "git add" to track)
 
 ![Añadir el repositorio remoto](nestjs-microservicios.01.002.png)
 
-- Añadir el repositorio remoto
+- Eliminar el repositorio que se creó automáticamente por usar `nest new`
 
 ```bash
-git remote add origin https://github.com/juanpabloperez/nestjs-microservicios.git
+rm -rf 01-Reforzamiento/products/.git
 ```
 
 - Añadir el repositorio remoto
 
 ```bash
-git remote add origin https://github.com/juanpabloperez/nestjs-microservicios.git
+git remote add origin https://github.com/peelmicro/nestjs-microservicios.git
+```
+
+- Create the first commit
+
+```bash
+git add .
+git commit -m "Initial commit"
+[main (root-commit) 61937cb] Initial commit
+ 28 files changed, 12588 insertions(+)
+ create mode 100644 01-Reforzamiento/products/.env.template
+ create mode 100644 01-Reforzamiento/products/.gitignore
+ create mode 100644 01-Reforzamiento/products/.prettierrc
+ create mode 100644 01-Reforzamiento/products/README.md
+ create mode 100644 01-Reforzamiento/products/eslint.config.mjs
+ create mode 100644 01-Reforzamiento/products/nest-cli.json
+ create mode 100644 01-Reforzamiento/products/package-lock.json
+ create mode 100644 01-Reforzamiento/products/package.json
+ create mode 100644 01-Reforzamiento/products/src/app.module.ts
+ create mode 100644 01-Reforzamiento/products/src/config/envs.ts
+ create mode 100644 01-Reforzamiento/products/src/main.ts
+ create mode 100644 01-Reforzamiento/products/src/products/dto/create-product.dto.ts
+ create mode 100644 01-Reforzamiento/products/src/products/dto/update-product.dto.ts
+ create mode 100644 01-Reforzamiento/products/src/products/entities/product.entity.ts
+ create mode 100644 01-Reforzamiento/products/src/products/products.controller.spec.ts
+ create mode 100644 01-Reforzamiento/products/src/products/products.controller.ts
+ create mode 100644 01-Reforzamiento/products/src/products/products.http
+ create mode 100644 01-Reforzamiento/products/src/products/products.module.ts
+ create mode 100644 01-Reforzamiento/products/src/products/products.service.spec.ts
+ create mode 100644 01-Reforzamiento/products/src/products/products.service.ts
+ create mode 100644 01-Reforzamiento/products/test/app.e2e-spec.ts
+ create mode 100644 01-Reforzamiento/products/test/jest-e2e.json
+ create mode 100644 01-Reforzamiento/products/tsconfig.build.json
+ create mode 100644 01-Reforzamiento/products/tsconfig.json
+ create mode 100644 doc/nest-cheatsheet.pdf
+ create mode 100644 doc/nestjs-microservicios.01.001.png
+ create mode 100644 doc/nestjs-microservicios.01.002.png
+ create mode 100644 doc/nestjs-microservicios.01.md
+```
+
+- Push the first commit
+
+```bash
+git push -u origin main
+Enumerating objects: 39, done.
+Counting objects: 100% (39/39), done.
+Delta compression using up to 16 threads
+Compressing objects: 100% (35/35), done.
+Writing objects: 100% (39/39), 1.09 MiB | 2.67 MiB/s, done.
+Total 39 (delta 1), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (1/1), done.
+To https://github.com/peelmicro/nestjs-microservicios.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
 ```
