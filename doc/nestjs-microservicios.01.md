@@ -54,7 +54,7 @@ mkdir 01-Reforzamiento
 mv products 01-Reforzamiento/
 ```
 
-#### 01.1.2. Asegurarnos de que el proyecto está funcionando
+#### 01.1.2. Vamos a asegurarnos de que el proyecto está funcionando
 
 - Para asegurarnos de que el proyecto está funcionando, ejecutamos el siguiente comando:
 

@@ -1,4 +1,4 @@
-@url = http://localhost:3000/api/products
+@url = http://localhost:3001/api/products
 
 ### Crear un nuevo producto
 POST {{url}}
