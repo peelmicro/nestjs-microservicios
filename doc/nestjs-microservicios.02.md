@@ -502,10 +502,340 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
 Server running on port 3001
 ```
 
-- Vamos a crear el controlador `ProductsController` que será el encargado de manejar las peticiones HTTP.
+### 02.06. Vamos a crear el DTO para la paginación
+
+- Vamos a crear el DTO para la paginación que será el encargado de manejar la paginación de los productos.
+
+> 02-Products-App/products-ms/src/common/dto/pagination.dto.ts
+
+```ts
+import { Type, Transform } from 'class-transformer';
+import { IsOptional, IsPositive } from 'class-validator';
+
+export class PaginationDto {
+  @IsPositive()
+  @IsOptional()
+  @Transform(({ value }) => value ? Number(value) : 1)
+  @Type(() => Number)
+  page: number;
+
+  @IsPositive()
+  @IsOptional()
+  @Transform(({ value }) => value ? Number(value) : 10)
+  @Type(() => Number)
+  limit: number;
+}
+```
+
+### 02.07. Vamos a completar el servicio de productos
+
+> 02-Products-App/products-ms/src/products/products.service.ts
+
+```ts
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { PrismaClient } from '@prisma/client';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+
+@Injectable()
+export class ProductsService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(ProductsService.name);
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('Connected to the database');
+  }
+
+  create(createProductDto: CreateProductDto) {
+    return this.product.create({
+      data: createProductDto,
+    });
+  }
+
+  async findAll(paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+
+    const totalPages = await this.product.count({ where: { available: true } });
+    const lastPage = Math.ceil(totalPages / limit);
+
+    return {
+      data: await this.product.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: {
+          available: true,
+        },
+      }),
+      meta: {
+        total: totalPages,
+        page,
+        lastPage,
+      },
+    };
+  }
+
+  async findOne(id: number) {
+    const product = await this.product.findFirst({
+      where: { id, available: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with id #${id} not found`);
+    }
+
+    return product;
+  }
+
+  async update(id: number, updateProductDto: UpdateProductDto) {
+    const { id: __, ...data } = updateProductDto;
+
+    await this.findOne(id);
+
+    return this.product.update({
+      where: { id },
+      data: data,
+    });
+  }
+
+  async remove(id: number) {
+    await this.findOne(id);
+
+    // return this.product.delete({
+    //   where: { id }
+    // });
+
+    const product = await this.product.update({
+      where: { id },
+      data: {
+        available: false,
+      },
+    });
+
+    return product;
+  }
+}
+```
+
+### 02.08. Vamos a completar el controlador de productos
 
 > 02-Products-App/products-ms/src/products/products.controller.ts
 
+```ts
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { ProductsService } from './products.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
+@Controller('products')
+export class ProductsController {
+  constructor(private readonly productsService: ProductsService) {}
 
+  @Post()
+  create(@Body() createProductDto: CreateProductDto) {
+    return this.productsService.create(createProductDto);
+  }
 
+  @Get()
+  findAll(@Body() paginationDto: PaginationDto) {
+    return this.productsService.findAll(paginationDto);
+  }
+
+  @Get(':id')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.findOne(id);
+  }
+
+  @Patch()
+  update(@Body() updateProductDto: UpdateProductDto) {
+    return this.productsService.update(updateProductDto.id, updateProductDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.remove(id);
+  }
+}
+```
+
+### 02.09. Vamos a crear el archivo de request a la API
+
+> 02-Products-App/products-ms/src/products/products.http
+
+```http
+@url = http://localhost:3001/products
+
+### Crear un nuevo producto
+POST {{url}}
+Content-Type: application/json
+
+{
+  "name": "Producto 1",
+  "price": 200
+}
+
+### Obtener todos los productos
+GET {{url}}
+Content-Type: application/json
+
+{
+  "page": null,
+  "limit": null
+}
+
+### Obtener un producto por ID
+GET {{url}}/1
+
+### Actualizar un producto por ID
+PATCH {{url}}
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Producto 1 actualizado",
+  "price": 300
+}
+
+### Eliminar un producto por ID
+DELETE {{url}}/1
+```
+
+- Probamos las peticiones que hemos creado y vemos que todo está funcionando correctamente.
+
+### 02.10. Vamos a transformar el Controller para que sea un microservicio
+
+#### 02.10.01. Instalación de NestJS Microservices
+
+- Vamos a instalar el paquete `@nestjs/microservices` para que podamos utilizar microservicios en nuestro proyecto.
+
+```bash
+npm i @nestjs/microservices
+
+added 1 package, and audited 829 packages in 2s
+
+149 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+```
+
+#### 02.10.02. Configuración de microservicios
+
+- Vamos a modificar el archivo `main.ts` para que sea un microservicio.
+
+> 02-Products-App/products-ms/src/main.ts
+
+```diff
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { envs } from './config/envs';
++import { Transport } from '@nestjs/microservices';
++import { MicroserviceOptions } from '@nestjs/microservices';
+
+async function bootstrap() {
+
+  const logger = new Logger('Main');
+  
+- const app = await NestFactory.create(AppModule);
+
++ const app = await NestFactory.createMicroservice<MicroserviceOptions>(
++   AppModule,
++   {
++     transport: Transport.TCP,
++     options: {
++       port: envs.port
++     }
++   }
++ );
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+- await app.listen(envs.port);
++ await app.listen();
++ logger.log(`Products Microservice running on port ${envs.port}`);
+}
+bootstrap();
+```
+
+- Vamos a ejecutar el proyecto para ver que todo está funcionando correctamente.
+
+```bash
+npm run start:dev
+
+[16:38:56] File change detected. Starting incremental compilation...
+
+[16:38:56] Found 0 errors. Watching for file changes.
+
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [NestFactory] Starting Nest application...
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [InstanceLoader] AppModule dependencies initialized +14ms
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [InstanceLoader] ProductsModule dependencies initialized +1ms
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [ProductsService] Connected to the database
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [NestMicroservice] Nest microservice successfully started +9ms
+[Nest] 696723  - 03/04/2025, 16:38:57     LOG [Main] Products Microservice running on port 3001
+```
+
+#### 02.10.03. Vamos a modificar el controlador para que sea un microservicio utilizando `MessagePattern`
+
+> 02-Products-App/products-ms/src/products/products.controller.ts
+
+```diff
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { ProductsService } from './products.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
++import { MessagePattern, Payload } from '@nestjs/microservices';
+
+@Controller('products')
+export class ProductsController {
+  constructor(private readonly productsService: ProductsService) {}
+
+- @Post()
++ @MessagePattern({ cmd: 'create-product' })
+- create(@Body() createProductDto: CreateProductDto) {
++ create(@Payload() createProductDto: CreateProductDto) {
+    return this.productsService.create(createProductDto);
+  }
+
+- @Get()
++ @MessagePattern({ cmd: 'find-all-products' })
+- findAll(@Body() paginationDto: PaginationDto) {
++ findAll(@Payload() paginationDto: PaginationDto) {
+    return this.productsService.findAll(paginationDto);
+  }
+
+- @Get(':id')
++ @MessagePattern({ cmd: 'find-one-product' })
+- findOne(@Param('id', ParseIntPipe) id: number) {
++ findOne(@Payload('id', ParseIntPipe) id: number) {
+    return this.productsService.findOne(id);
+  }
+
+- @Patch()
++ @MessagePattern({ cmd: 'update-product' })
+- update(@Body() updateProductDto: UpdateProductDto) {
++ update(@Payload() updateProductDto: UpdateProductDto) {
+    return this.productsService.update(updateProductDto.id, updateProductDto);
+  }
+
+- @Delete(':id')
++ @MessagePattern({ cmd: 'remove-product' })
+- remove(@Param('id', ParseIntPipe) id: number) {
++ remove(@Payload('id', ParseIntPipe) id: number) {
+    return this.productsService.remove(id);
+  }
+}
+```
+
+#### 02.10.04. Vamos a crear un cliente para el microservicio
+
+> 02-Products-App/products-ms/src/products/products.client.ts
+
+```ts
+
+```
