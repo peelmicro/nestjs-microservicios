@@ -1,0 +1,29 @@
+@url = http://localhost:3000/api/products
+
+### Crear un nuevo producto
+POST {{url}}
+Content-Type: application/json
+
+{
+  "name": "Producto XXX",
+  "price": 13.45
+}
+
+### Obtener todos los productos
+GET {{url}}?page=1&limit=10
+
+
+### Obtener un producto por ID
+GET {{url}}/3
+
+### Actualizar un producto por ID
+PATCH {{url}}/2
+Content-Type: application/json
+
+{
+  "name": "Producto 1 actualizado",
+  "price": 300
+}
+
+### Eliminar un producto por ID
+DELETE {{url}}/2

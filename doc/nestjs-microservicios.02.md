@@ -9,6 +9,7 @@
 ### 02.01. Creación del microservicio
 
 ```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App$
 nest new products-ms --skip-git
 ✨  We will scaffold your app in a few seconds..
 
@@ -72,7 +73,7 @@ npm run start
 - Vamos a crear un recurso para el microservicio de productos.
 
 ```bash
-nest g resource products --no-spec
+~/Training/microservices/nestjs-microservicios/02-Products-App/products-ms$ nest g resource products --no-spec
 ✔ What transport layer do you use? REST API
 ✔ Would you like to generate CRUD entry points? Yes
 CREATE src/products/products.controller.ts (957 bytes)
@@ -839,3 +840,31 @@ export class ProductsController {
 ```ts
 
 ```
+
+### 2.11 Modificar el servicio del producto para gestionar errores Rcp
+
+- Vamos a modificar el servicio del producto para gestionar errores Rpc.
+
+> 02-Products-App/products-ms/src/products/products.service.ts
+
+```diff
+.
++import { RpcException } from '@nestjs/microservices';
+.
+  async findOne(id: number) {
+    const product = await this.product.findFirst({
+      where: { id, available: true },
+    });
+
++   if (!product) {
++     throw new RpcException({ 
++       message: `Product with id #${ id } not found`,
++       status: HttpStatus.BAD_REQUEST
++     });
++   }
+
+    return product;
+  }
+.  
+```
+

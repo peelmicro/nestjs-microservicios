@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Logger } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -7,6 +7,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 
 @Controller('products')
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name);
   constructor(private readonly productsService: ProductsService) {}
 
   @MessagePattern({ cmd: 'create-product' })
@@ -21,6 +22,7 @@ export class ProductsController {
 
   @MessagePattern({ cmd: 'find-one-product' })
   findOne(@Payload('id', ParseIntPipe) id: number) {
+    this.logger.log('findOne', id);
     return this.productsService.findOne(id);
   }
 
