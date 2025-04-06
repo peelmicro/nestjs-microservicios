@@ -2,7 +2,7 @@
 
 - En este documento vamos a documentar el curso [NestJS + Microservicios: Aplicaciones escalables y modulares de Udemy](https://www.udemy.com/course/nestjs-microservicios)
 
-## 02. Microservicios: Productos
+## 02. Microservicios: Products
 
 - Vamos a crear el microservicio de productos.
 

@@ -1,0 +1,26 @@
+@url = http://localhost:3000/api/orders
+
+### Crear un nuevo pedido
+POST {{url}}
+Content-Type: application/json
+
+{
+  "name": "Pedido 1",
+  "price": 13.45
+}
+
+### Obtener todos los pedidos
+# GET {{url}}?page=1&limit=10
+GET {{url}}
+
+
+### Obtener un pedido por ID
+GET {{url}}/3
+
+### Cambiar el estado de un pedido por ID
+PATCH {{url}}/2
+Content-Type: application/json
+
+{
+  "status": "delivered"
+}

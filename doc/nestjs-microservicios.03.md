@@ -88,7 +88,7 @@ added 14 packages, and audited 1619 packages in 3s
 found 0 vulnerabilities
 ```
 
-- Vamos a crear el document `envs.ts` en el directorio `03-Client-Gateway/client-gateway/src/config` que será el encargado de leer y validar el archivo `.env`.
+- Vamos a crear el documento `envs.ts` en el directorio `02-Products-App/client-gateway/src/config` que será el encargado de leer y validar el archivo `.env`.
 
 > 02-Products-App/client-gateway/src/config/envs.ts
 
@@ -183,12 +183,13 @@ bootstrap();
 
 ### 03.03. Vamos a crear un resource para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Products
 
-#### 03.03.01. Creación del resource
+#### 03.03.01. Creación del resource de Products
 
 - Vamos a crear un resource para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Products.
 
 ```bash
-~/Training/microservices/nestjs-microservicios/02-Products-App/client-gateway$ nest g resource products --no-spec
+~/Training/microservices/nestjs-microservicios/02-Products-App/client-gateway$ 
+nest g resource products --no-spec
 ✔ What transport layer do you use? REST API
 ✔ Would you like to generate CRUD entry points? No
 CREATE src/products/products.controller.ts (228 bytes)
@@ -201,7 +202,7 @@ UPDATE src/app.module.ts (207 bytes)
 
 #### 03.03.02. Vamos a crear los mismos DTOs que ya teníamos en el microservicio de Products para el microservicio de ClientGateway
 
-- Vamos a crear los DTOs en el directorio `03-Client-Gateway/client-gateway/src/products/dto`.
+- Vamos a crear los DTOs en el directorio `02-Products-App/client-gateway/src/products/dto`.
 
 > 02-Products-App/client-gateway/src/products/dto/create-product.dto.ts
 
@@ -493,9 +494,9 @@ export class ProductsController {
 
 - Podemos probar el microservicio de ClientGateway desde el documento `products.http` y ver que todo funciona correctamente.
 
-#### 03.05 Creación de un `Custom Exception` Filter para el microservicio de ClientGateway
+### 03.05 Creación de un `Custom Exception` Filter para el microservicio de ClientGateway
 
-##### 03.05.01. Creación del `Custom Exception` Filter
+#### 03.05.01. Creación del `Custom Exception` Filter
 
 - Vamos a crear el `Custom Exception` Filter para el microservicio de ClientGateway para gestionar los errores que se produzcan en los microservicios de que se llaman desde ClientGateway.
 
@@ -531,7 +532,7 @@ export class RpcCustomExceptionFilter implements ExceptionFilter {
 }
 ```
 
-##### 03.05.02. Añadir el `Custom Exception` Filter al documento `main.ts` del microservicio de ClientGateway
+#### 03.05.02. Añadir el `Custom Exception` Filter al documento `main.ts` del microservicio de ClientGateway
 
 - Vamos a añadir el `Custom Exception` Filter al documento `main.ts` del microservicio de ClientGateway.
 
@@ -568,20 +569,206 @@ bootstrap();
 
 - Podemos probar el microservicio de ClientGateway desde el documento `products.http` y ver que todo funciona correctamente.
 
+### 03.06. Conectar el microservicio de ClientGateway con el microservicio de Orders
+
+#### 03.06.01. Creación del recurso de Orders
+
+- Vamos a crear un recurso para el microservicio de Orders.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/client-gateway$
+nest g resource orders --no-spec
+✔ What transport layer do you use? REST API
+✔ Would you like to generate CRUD entry points? Yes
+CREATE src/orders/orders.controller.ts (915 bytes)
+CREATE src/orders/orders.module.ts (255 bytes)
+CREATE src/orders/orders.service.ts (623 bytes)
+CREATE src/orders/dto/create-order.dto.ts (31 bytes)
+CREATE src/orders/dto/update-order.dto.ts (173 bytes)
+CREATE src/orders/entities/order.entity.ts (22 bytes)
+UPDATE src/app.module.ts (276 bytes)
+```
+
+#### 03.06.02. Vamos a actualizar el archivo `.env` para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Orders
+
+> 02-Products-App/client-gateway/.env
+
+```text
+PORT=3000
+
+PRODUCTS_MICROSERVICE_HOST=localhost
+PRODUCTS_MICROSERVICE_PORT=3001
+
+ORDERS_MICROSERVICE_HOST=localhost
+ORDERS_MICROSERVICE_PORT=3002
+```
+
+#### 03.06.03. Vamos a modificar el documento `envs.ts` para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Orders
+
+> 02-Products-App/client-gateway/src/config/envs.ts
+
+```ts
+import 'dotenv/config';
+
+import * as joi from 'joi';
+
+interface EnvVars {
+  PORT: number;
+  PRODUCTS_MICROSERVICE_HOST: string;
+  PRODUCTS_MICROSERVICE_PORT: number;
+  ORDERS_MICROSERVICE_HOST: string;
+  ORDERS_MICROSERVICE_PORT: number;
+}
+
+const envsSchema = joi
+  .object({
+    PORT: joi.number().required(),
+    PRODUCTS_MICROSERVICE_HOST: joi.string().required(),
+    PRODUCTS_MICROSERVICE_PORT: joi.number().required(),
+    ORDERS_MICROSERVICE_HOST: joi.string().required(),
+    ORDERS_MICROSERVICE_PORT: joi.number().required(),
+  })
+  .unknown(true);
+
+const { error, value } = envsSchema.validate(process.env);
+
+if (error) {
+  throw new Error(`Config validation error: ${error.message}`);
+}
+
+const envVars: EnvVars = value;
+
+export const envs = {
+  port: envVars.PORT,
+  productsMicroserviceHost: envVars.PRODUCTS_MICROSERVICE_HOST,
+  productsMicroservicePort: envVars.PRODUCTS_MICROSERVICE_PORT,
+  ordersMicroserviceHost: envVars.ORDERS_MICROSERVICE_HOST,
+  ordersMicroservicePort: envVars.ORDERS_MICROSERVICE_PORT,
+};
+```
+
+#### 03.06.04. Vamos a modificar el documento `services.ts` para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Orders 
+
+> 02-Products-App/client-gateway/src/config/services.ts
+
+```ts
+export const PRODUCT_SERVICE = 'PRODUCT_SERVICE';
+export const ORDERS_SERVICE = 'ORDERS_SERVICE';
+```
+
+#### 03.06.05. Vamos a modificar el documento `orders.module.ts` para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Orders
+
+> 02-Products-App/client-gateway/src/orders/orders.module.ts
+
+```ts
+import { Module } from '@nestjs/common';
+import { OrdersController } from './orders.controller';
+import { envs, ORDERS_SERVICE } from 'src/config';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+
+@Module({
+  controllers: [OrdersController],
+  providers: [],
+  imports: [
+    ClientsModule.register([
+      {
+        name: ORDERS_SERVICE,
+        transport: Transport.TCP,
+        options: {
+          host: envs.ordersMicroserviceHost,
+          port: envs.ordersMicroservicePort,
+        },
+      },
+    ]),
+  ],  
+})
+export class OrdersModule {}
+```
+
+#### 03.06.06. Vamos a modificar el documento `orders.controller.ts` para que el microservicio de ClientGateway pueda comunicarse con el microservicio de Orders
+
+> 02-Products-App/client-gateway/src/orders/orders.controller.ts
+
+```ts
+import { Controller, Get, Post, Body, Patch, Param, Delete, Logger, Inject } from '@nestjs/common';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { ORDERS_SERVICE } from 'src/config';
+import { catchError, firstValueFrom } from 'rxjs';
+
+@Controller('orders')
+export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
+
+  constructor(
+    @Inject(ORDERS_SERVICE) private readonly ordersClient: ClientProxy,
+  ) {}
+
+  @Post()
+  create(@Body() createOrderDto: CreateOrderDto) {
+    return this.ordersClient.send(
+      'createOrder',
+      createOrderDto,
+    );
+  }
+
+  @Get()
+  findAll() {
+    return this.ordersClient.send(
+      'findAllOrders',
+      {},
+    );
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.ordersClient.send(
+      'findOneOrder',
+      { id: +id },
+    );
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
+    return this.ordersClient.send(
+      'changeOrderStatus',
+      { id: +id, updateOrderDto },
+    );
+  }
+}
+```
+
+#### 03.06.07. Vamos a crear el documento `orders.http` para probar el microservicio de ClientGateway
+
+> 02-Products-App/client-gateway/src/orders/orders.http
+
+```http
+@url = http://localhost:3000/api/orders
+
+### Crear un nuevo pedido
+POST {{url}}
+Content-Type: application/json
+
+{
+  "name": "Pedido 1",
+  "price": 13.45
+}
+
+### Obtener todos los pedidos
+# GET {{url}}?page=1&limit=10
+GET {{url}}
 
 
+### Obtener un pedido por ID
+GET {{url}}/3
 
+### Cambiar el estado de un pedido por ID
+PATCH {{url}}/2
+Content-Type: application/json
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+{
+  "status": "delivered"
+}
+```
