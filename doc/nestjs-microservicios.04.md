@@ -612,13 +612,16 @@ Your database is now in sync with your schema.
 > 02-Products-App/orders-ms/src/orders/orders.service.ts
 
 ```diff
-+import { Injectable, OnModuleInit } from '@nestjs/common';
++import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 +import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 +export class OrdersService extends PrismaClient implements OnModuleInit {
+
++ private readonly logger = new Logger(OrdersService.name);
+
 + async onModuleInit() {
 +   await this.$connect();
 + }
@@ -641,8 +644,327 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 }
 ```
 
-#### 04.05.06. Crear el controlador de Orders
+#### 04.05.06. Tenemos que asegurarnos que el mensaje de "Connected to database" se muestra en la consola
+
+```bash
+[19:45:40] File change detected. Starting incremental compilation...
+
+[19:45:40] Found 0 errors. Watching for file changes.
+
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [NestFactory] Starting Nest application...
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [InstanceLoader] AppModule dependencies initialized +13ms
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [InstanceLoader] OrdersModule dependencies initialized +1ms
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [OrdersService] Connected to database
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [NestMicroservice] Nest microservice successfully started +8ms
+[Nest] 2465999  - 06/04/2025, 19:45:40     LOG [OrdersMS-Main] OrdersMS Microservice running on port 3002
+```
+
+#### 04.05.07. Crear los Dtos de paginación
+
+- Vamos a crear los Dtos de paginación.
+
+> 02-Products-App/orders-ms/src/common/dto/pagination.dto.ts
+
+```ts
+import { Type, Transform } from 'class-transformer';
+import { IsOptional, IsPositive } from 'class-validator';
+
+export class PaginationDto {
+  @IsPositive()
+  @IsOptional()
+  @Transform(({ value }) => value ? Number(value) : 1)
+  @Type(() => Number)
+  page: number;
+
+  @IsPositive()
+  @IsOptional()
+  @Transform(({ value }) => value ? Number(value) : 10)
+  @Type(() => Number)
+  limit: number;
+}
+```
+
+#### 04.05.08. Crear las excepciones de RpcException
+
+- Vamos a crear las excepciones de RpcException.
+
+> 02-Products-App/orders-ms/src/common/exceptions/rpc-custom-exception.filter.ts
+
+```ts
+import { Catch, ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+
+import { RpcException } from '@nestjs/microservices';
+
+@Catch(RpcException)
+export class RpcCustomExceptionFilter implements ExceptionFilter {
+  catch(exception: RpcException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse();
+
+    const rpcError = exception.getError();
+
+    if (
+      typeof rpcError === 'object' &&
+      'status' in rpcError &&
+      'message' in rpcError
+    ) {
+      const status = isNaN(Number(rpcError.status)) ? 400 : Number(rpcError.status);
+      return response.status(status).json(rpcError);
+    }
+
+    response.status(400).json({
+      status: 400,
+      message: rpcError,
+    });
+  }
+}
+```
+
+#### 04.05.09. Crear los DTOs para el servicio de Orders
+
+- Vamos a crear los DTOs para el servicio de Orders.
+
+> 02-Products-App/orders-ms/src/orders/dto/create-order.dto.ts
+
+```ts
+import { OrderStatus } from '@prisma/client';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+} from 'class-validator';
+import { OrderStatusList } from '../enum/order.enum';
+
+export class CreateOrderDto {
+  @IsNumber()
+  @IsPositive()
+  totalAmount: number;
+
+  @IsNumber()
+  @IsPositive()
+  totalItems: number;
+
+  @IsEnum(OrderStatusList, {
+    message: `Possible status values are ${OrderStatusList}`,
+  })
+  @IsOptional()
+  status: OrderStatus = OrderStatus.PENDING;
+
+  @IsBoolean()
+  @IsOptional()
+  paid: boolean = false;
+}
+```
+
+> 02-Products-App/orders-ms/src/orders/dto/change-order-status.dto.ts
+
+```ts
+import { OrderStatus } from '@prisma/client';
+import { IsEnum, IsUUID } from 'class-validator';
+import { OrderStatusList } from '../enum/order.enum';
+
+export class ChangeOrderStatusDto {
+  @IsUUID(4)
+  id: string;
+
+  @IsEnum(OrderStatusList, {
+    message: `Valid status are ${OrderStatusList}`,
+  })
+  status: OrderStatus;
+}
+```
+
+> 02-Products-App/orders-ms/src/orders/dto/order-pagination.dto.ts
+
+```ts
+import { IsEnum, IsOptional } from 'class-validator';
+import { PaginationDto } from 'src/common';
+import { OrderStatusList } from '../enum/order.enum';
+import { OrderStatus } from '@prisma/client';
+
+export class OrderPaginationDto extends PaginationDto {
+  @IsOptional()
+  @IsEnum(OrderStatusList, {
+    message: `Valid status are ${OrderStatusList}`,
+  })
+  status: OrderStatus;
+}
+```
+
+#### 04.05.10. Crear el enum de OrderStatus
+
+- Vamos a crear el enum de OrderStatus.
+
+> 02-Products-App/orders-ms/src/orders/enum/order.enum.ts
+
+```ts
+import { OrderStatus } from '@prisma/client';
+
+export const OrderStatusList = [
+  OrderStatus.PENDING,
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+]
+```
+
+#### 04.05.11. Crear el servicio de Orders
+
+- Vamos a crear el servicio de Orders.
+
+> 02-Products-App/orders-ms/src/orders/orders.service.ts
+
+```ts
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { PrismaClient } from '@prisma/client';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
+import { RpcException } from '@nestjs/microservices';
+import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
+
+@Injectable()
+export class OrdersService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(OrdersService.name);
+
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('Connected to database');
+  }
+
+  create(createOrderDto: CreateOrderDto) {
+    return this.order.create({
+      data: createOrderDto,
+    });
+  }
+
+  async findAll(orderPaginationDto: OrderPaginationDto) {
+    const { page, limit, status } = orderPaginationDto;
+
+    const totalPages = await this.order.count({
+      where: { status },
+    });
+    const lastPage = Math.ceil(totalPages / limit);
+
+    return {
+      data: await this.order.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: { status },
+      }),
+      meta: {
+        total: totalPages,
+        page,
+        lastPage,
+      },
+    };
+  }
+
+  async findOne(id: string) {
+    const order = await this.order.findFirst({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: `Order with id ${id} not found`,
+      });
+    }
+
+    return order;
+  }
+
+  async changeStatus(changeOrderStatusDto: ChangeOrderStatusDto) {
+    const { id, status } = changeOrderStatusDto;
+
+    const order = await this.findOne(id);
+    if (order.status === status) {
+      return order;
+    }
+
+    return this.order.update({
+      where: { id },
+      data: { status },
+    });
+  }
+}
+```
+
+#### 04.05.12. Crear el controlador de Orders
 
 - Vamos a crear el controlador de Orders.
 
+> 02-Products-App/orders-ms/src/orders/orders.controller.ts 
 
+```ts
+import { Controller, ParseUUIDPipe } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
+import { OrdersService } from './orders.service';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
+
+@Controller()
+export class OrdersController {
+  constructor(private readonly ordersService: OrdersService) {}
+
+  @MessagePattern('createOrder')
+  create(@Payload() createOrderDto: CreateOrderDto) {
+    return this.ordersService.create(createOrderDto);
+  }
+
+  @MessagePattern('findAllOrders')
+  findAll(@Payload() orderPaginationDto: OrderPaginationDto) {
+    return this.ordersService.findAll(orderPaginationDto);
+  }
+
+  @MessagePattern('findOneOrder')
+  findOne(@Payload('id', ParseUUIDPipe) id: string) {
+    return this.ordersService.findOne(id);
+  }
+
+  @MessagePattern('changeOrderStatus')
+  changeOrderStatus(@Payload() changeOrderStatusDto: ChangeOrderStatusDto) {
+    return this.ordersService.changeStatus(changeOrderStatusDto);
+  }
+}
+```
+
+#### 04.05.13. Modificar el archivo `main.ts` para que utilice los validadores de NestJS
+
+- Vamos a modificar el archivo `main.ts` para que utilice los validadores de NestJS.
+
+> 02-Products-App/orders-ms/src/main.ts
+
+```ts
+import { NestFactory } from '@nestjs/core';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { AppModule } from './app.module';
+import { envs } from './config';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+async function bootstrap() {
+  const logger = new Logger('OrdersMS-Main');
+
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    AppModule,
+    {
+      transport: Transport.TCP,
+      options: {
+        port: envs.port,
+      },
+    },
+  );
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  await app.listen();
+  logger.log(`OrdersMS Microservice running on port ${envs.port}`);
+}
+bootstrap();
+```

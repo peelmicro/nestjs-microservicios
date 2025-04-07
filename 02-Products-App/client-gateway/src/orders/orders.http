@@ -5,22 +5,24 @@ POST {{url}}
 Content-Type: application/json
 
 {
-  "name": "Pedido 1",
-  "price": 13.45
+  "totalAmount": 13.45,
+  "totalItems": 2
 }
 
 ### Obtener todos los pedidos
-# GET {{url}}?page=1&limit=10
-GET {{url}}
+GET {{url}}?page=1&limit=10&status=CANCELLED
+
+### Obtener todos los pedidos por status
+GET {{url}}/CANCELLED?page=1&limit=10
 
 
 ### Obtener un pedido por ID
-GET {{url}}/3
+GET {{url}}/id/fb41cf12-b788-4515-8f0f-e43ced10a4a4
 
 ### Cambiar el estado de un pedido por ID
-PATCH {{url}}/2
+PATCH {{url}}/fb41cf12-b788-4515-8f0f-e43ced10a4a4
 Content-Type: application/json
 
 {
-  "status": "delivered"
+  "status": "DELIVERED"
 }

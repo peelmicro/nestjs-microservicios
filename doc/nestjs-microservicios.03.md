@@ -772,3 +772,211 @@ Content-Type: application/json
   "status": "delivered"
 }
 ```
+
+### 03.07. Actualizar el microservicio de ClientGateway para que pueda comunicarse correctamente con el microservicio de Orders
+
+#### 03.07.01. Vamos a actualizar los DTOs de Orders
+
+> 02-Products-App/client-gateway/src/orders/dto/create-order.dto.ts
+
+```ts
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+} from 'class-validator';
+import { OrderStatus, OrderStatusList } from '../enum/order.enum';
+
+export class CreateOrderDto {
+  @IsNumber()
+  @IsPositive()
+  totalAmount: number;
+
+  @IsNumber()
+  @IsPositive()
+  totalItems: number;
+
+  @IsEnum(OrderStatusList, {
+    message: `Possible status values are ${OrderStatusList}`,
+  })
+  @IsOptional()
+  status: OrderStatus = OrderStatus.PENDING;
+
+  @IsBoolean()
+  @IsOptional()
+  paid: boolean = false;
+}
+```
+
+> 02-Products-App/client-gateway/src/orders/dto/order-pagination.dto.ts
+
+```ts
+import { IsEnum, IsOptional } from 'class-validator';
+import { PaginationDto } from 'src/common';
+import { OrderStatus, OrderStatusList } from '../enum/order.enum';
+
+export class OrderPaginationDto extends PaginationDto {
+  @IsOptional()
+  @IsEnum(OrderStatusList, {
+    message: `Valid status are ${OrderStatusList}`,
+  })
+  status: OrderStatus;
+}
+```
+
+> 02-Products-App/client-gateway/src/orders/dto/status.dto.ts
+
+```ts
+import { IsEnum, IsOptional } from 'class-validator';
+import { OrderStatus, OrderStatusList } from '../enum/order.enum';
+
+export class StatusDto {
+  @IsOptional()
+  @IsEnum(OrderStatusList, {
+    message: `Valid status are ${OrderStatusList}`,
+  })
+  status: OrderStatus;
+}
+```
+
+#### 03.07.02. Vamos a crear el enum de OrderStatus
+
+> 02-Products-App/client-gateway/src/orders/enum/order.enum.ts
+
+```ts
+export enum OrderStatus {
+  PENDING = 'PENDING',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+}
+
+export const OrderStatusList = [
+  OrderStatus.PENDING,
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+];
+```
+
+#### 03.07.03. Vamos a actualizar el controlador de Orders
+
+> 02-Products-App/client-gateway/src/orders/orders.controller.ts
+
+```ts
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Logger,
+  Inject,
+  Query,
+  ParseUUIDPipe,
+} from '@nestjs/common';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { ORDERS_SERVICE } from 'src/config';
+import { firstValueFrom } from 'rxjs';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
+import { StatusDto } from './dto/status.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+
+@Controller('orders')
+export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
+
+  constructor(
+    @Inject(ORDERS_SERVICE) private readonly ordersClient: ClientProxy,
+  ) {}
+
+  @Post()
+  create(@Body() createOrderDto: CreateOrderDto) {
+    return this.ordersClient.send('createOrder', createOrderDto);
+  }
+
+  @Get()
+  findAll(@Query() orderPaginationDto: OrderPaginationDto) {
+    return this.ordersClient.send('findAllOrders', orderPaginationDto);
+  }
+
+  @Get(':status')
+  async findAllByStatus(
+    @Param() statusDto: StatusDto,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    try {
+      return this.ordersClient.send('findAllOrders', {
+        ...paginationDto,
+        status: statusDto.status,
+      });
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
+  @Get('id/:id')
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    try {
+      const order = await firstValueFrom(
+        this.ordersClient.send('findOneOrder', { id }),
+      );
+      return order;
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
+  @Patch(':id')
+  changeStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() statusDto: StatusDto,
+  ) {
+    try {
+      return this.ordersClient.send('changeOrderStatus', {
+        id,
+        status: statusDto.status,
+      });
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+}
+```
+
+#### 03.07.04. Vamos a actualizar el documento `orders.http` para probar el microservicio de ClientGateway
+
+> 02-Products-App/client-gateway/src/orders/orders.http
+
+```http
+@url = http://localhost:3000/api/orders
+
+### Crear un nuevo pedido
+POST {{url}}
+Content-Type: application/json
+
+{
+  "totalAmount": 13.45,
+  "totalItems": 2
+}
+
+### Obtener todos los pedidos
+GET {{url}}?page=1&limit=10&status=CANCELLED
+
+### Obtener todos los pedidos por status
+GET {{url}}/CANCELLED?page=1&limit=10
+
+
+### Obtener un pedido por ID
+GET {{url}}/id/fb41cf12-b788-4515-8f0f-e43ced10a4a4
+
+### Cambiar el estado de un pedido por ID
+PATCH {{url}}/fb41cf12-b788-4515-8f0f-e43ced10a4a4
+Content-Type: application/json
+
+{
+  "status": "DELIVERED"
+}
+```
