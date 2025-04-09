@@ -15,7 +15,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { PRODUCT_SERVICE } from 'src/config';
+import { NATS_SERVICE } from 'src/config';
 import { catchError, firstValueFrom } from 'rxjs';
 
 @Controller('products')
@@ -23,12 +23,12 @@ export class ProductsController {
   private readonly logger = new Logger(ProductsController.name);
 
   constructor(
-    @Inject(PRODUCT_SERVICE) private readonly productsClient: ClientProxy,
+    @Inject(NATS_SERVICE) private readonly client: ClientProxy,
   ) {}
 
   @Post()
   createProduct(@Body() createProductDto: CreateProductDto) {
-    return this.productsClient.send(
+    return this.client.send(
       { cmd: 'create-product' },
       createProductDto,
     );
@@ -36,7 +36,7 @@ export class ProductsController {
 
   @Get()
   findAllProducts(@Query() paginationDto: PaginationDto) {
-    return this.productsClient.send(
+    return this.client.send(
       { cmd: 'find-all-products' },
       paginationDto,
     );
@@ -46,7 +46,7 @@ export class ProductsController {
   async findOne(@Param('id', ParseIntPipe) id: number) {
     try {
       return await firstValueFrom(
-        this.productsClient.send({ cmd: 'find-one-product' }, { id })
+        this.client.send({ cmd: 'find-one-product' }, { id })
       );
     } catch (error) {
       throw new RpcException(error);
@@ -57,7 +57,7 @@ export class ProductsController {
   async deleteProduct(@Param('id', ParseIntPipe) id: number) {
     try {
       return await firstValueFrom(
-        this.productsClient.send({ cmd: 'remove-product' }, { id })
+        this.client.send({ cmd: 'remove-product' }, { id })
       );
     } catch (error) {
       throw new RpcException(error);
@@ -69,7 +69,7 @@ export class ProductsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updateProductDto: UpdateProductDto,
   ) {
-    return this.productsClient
+    return this.client
       .send(
         { cmd: 'update-product' },
         {
