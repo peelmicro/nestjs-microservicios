@@ -1,10 +1,17 @@
-import { HttpStatus, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaClient } from '@prisma/client';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { RpcException } from '@nestjs/microservices';
 
+const debug = false;
 @Injectable()
 export class ProductsService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(ProductsService.name);
@@ -47,9 +54,9 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     });
 
     if (!product) {
-      throw new RpcException({ 
-        message: `Product with id #${ id } not found`,
-        status: HttpStatus.BAD_REQUEST
+      throw new RpcException({
+        message: `Product with id #${id} not found`,
+        status: HttpStatus.BAD_REQUEST,
       });
     }
 
@@ -70,10 +77,6 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
   async remove(id: number) {
     await this.findOne(id);
 
-    // return this.product.delete({
-    //   where: { id }
-    // });
-
     const product = await this.product.update({
       where: { id },
       data: {
@@ -82,5 +85,43 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
     });
 
     return product;
+  }
+
+  async validateProducts(ids: number[]) {
+    if (debug) {
+      this.logger.debug(`Service: Validating products ${ids}`);
+    }
+    ids = Array.from(new Set(ids));
+    if (debug) {
+      this.logger.debug(`Service: Products to validate: ${ids}`);
+    }
+
+    const products = await this.product.findMany({
+      where: {
+        id: {
+          in: ids,
+        },
+        available: true,
+      },
+    });
+
+    if (debug) {
+      this.logger.debug(`Service: Products found: ${JSON.stringify(products, null, 2)}`);
+    }
+
+    if (products.length !== ids.length) {
+      if (debug) {
+        this.logger.debug(`Service: Some products were not found`, JSON.stringify({
+          ids,
+          products,
+        }, null, 2));
+      }
+      throw new RpcException({
+        message: 'Some products were not found',
+        status: HttpStatus.BAD_REQUEST,
+      });
+    }
+
+    return products;
   }
 }

@@ -841,7 +841,7 @@ export class ProductsController {
 
 ```
 
-### 2.11 Modificar el servicio del producto para gestionar errores Rcp
+### 02.11 Modificar el servicio del producto para gestionar errores Rcp
 
 - Vamos a modificar el servicio del producto para gestionar errores Rpc.
 
@@ -868,3 +868,68 @@ export class ProductsController {
 .  
 ```
 
+### 02.12 Modificar el servicio de productos para preparar una validación de productos
+
+#### 02.12.01. Vamos a modificar el servicio de productos para preparar una validación de productos
+
+> 02-Products-App/products-ms/src/products/products.service.ts
+
+```ts
+const debug = false;
+.
+ async validateProducts(ids: number[]) {
+    if (debug) {
+      this.logger.debug(`Service: Validating products ${ids}`);
+    }
+    ids = Array.from(new Set(ids));
+    if (debug) {
+      this.logger.debug(`Service: Products to validate: ${ids}`);
+    }
+
+    const products = await this.product.findMany({
+      where: {
+        id: {
+          in: ids,
+        },
+        available: true,
+      },
+    });
+
+    if (debug) {
+      this.logger.debug(`Service: Products found: ${JSON.stringify(products, null, 2)}`);
+    }
+
+    if (products.length !== ids.length) {
+      if (debug) {
+        this.logger.debug(`Service: Some products were not found`, JSON.stringify({
+          ids,
+          products,
+        }, null, 2));
+      }
+      throw new RpcException({
+        message: 'Some products were not found',
+        status: HttpStatus.BAD_REQUEST,
+      });
+    }
+
+    return products;
+  }
+.
+```
+
+#### 02.12.02. Vamos a modificar el controlador de productos para utilizar la validación de productos
+
+> 02-Products-App/products-ms/src/products/products.controller.ts 
+
+```ts
+const debug = false;
+.
+  @MessagePattern({ cmd: 'validate-products' })
+  validateProducts(@Payload('ids') ids: number[]) {
+    if (debug) {
+      this.logger.debug(`Controller: Validating products ${ids}`);
+    }
+    return this.productsService.validateProducts(ids);
+  }
+.
+```

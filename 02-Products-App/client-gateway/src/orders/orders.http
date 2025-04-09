@@ -5,19 +5,29 @@ POST {{url}}
 Content-Type: application/json
 
 {
-  "totalAmount": 13.45,
-  "totalItems": 2
+  "items": [
+    {
+      "productId": 3,
+      "quantity": 2,
+      "price": 150
+    },
+    {
+      "productId": 5,
+      "quantity": 1,
+      "price": 50
+    }    
+  ]
 }
 
 ### Obtener todos los pedidos
-GET {{url}}?page=1&limit=10&status=CANCELLED
+GET {{url}}?page=1&limit=10&status=PENDING
 
 ### Obtener todos los pedidos por status
 GET {{url}}/CANCELLED?page=1&limit=10
 
 
 ### Obtener un pedido por ID
-GET {{url}}/id/fb41cf12-b788-4515-8f0f-e43ced10a4a4
+GET {{url}}/id/342672aa-b5e8-4cde-be0b-b28902c990f0
 
 ### Cambiar el estado de un pedido por ID
 PATCH {{url}}/fb41cf12-b788-4515-8f0f-e43ced10a4a4

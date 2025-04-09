@@ -5,6 +5,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 
+const debug = false;
 @Controller('products')
 export class ProductsController {
   private readonly logger = new Logger(ProductsController.name);
@@ -34,5 +35,13 @@ export class ProductsController {
   @MessagePattern({ cmd: 'remove-product' })
   remove(@Payload('id', ParseIntPipe) id: number) {
     return this.productsService.remove(id);
+  }
+
+  @MessagePattern({ cmd: 'validate-products' })
+  validateProducts(@Payload('ids') ids: number[]) {
+    if (debug) {
+      this.logger.debug(`Controller: Validating products ${ids}`);
+    }
+    return this.productsService.validateProducts(ids);
   }
 }

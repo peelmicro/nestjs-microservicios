@@ -980,3 +980,157 @@ Content-Type: application/json
   "status": "DELIVERED"
 }
 ```
+
+### 03.08. Actualizar la parte Orders para que tenga en cuenta el uso de los Items
+
+#### 03.08.01. Vamos a crear el nuevo `order-item-dto` copiándolo del microservicio de Orders
+
+> 02-Products-App/client-gateway/src/orders/dto/order-item.dto.ts
+
+```ts
+import { IsNumber, IsPositive } from 'class-validator';
+
+export class OrderItemDto {
+  @IsNumber()
+  @IsPositive()
+  productId: number;
+
+  @IsNumber()
+  @IsPositive()
+  quantity: number;
+
+  @IsNumber()
+  @IsNumber()
+  price: number;
+}
+```
+
+- Vamos a actualizar el Dto de CreateOrderDto para que use el nuevo `order-item-dto`. Copiándolo de nuevo de orders-ms.
+
+> 02-Products-App/client-gateway/src/orders/dto/create-order.dto.ts
+
+```ts
+import {
+  ArrayMinSize,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { OrderItemDto } from './order-item.dto';
+import { Type } from 'class-transformer';
+
+export class CreateOrderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
+}
+```
+
+#### 03.08.02. Vamos a actualizar el documento `orders.http` para probar el microservicio de ClientGateway
+
+> 02-Products-App/client-gateway/src/orders/orders.http
+
+```http
+.
+### Crear un nuevo pedido
+POST {{url}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": 3,
+      "quantity": 2,
+      "price": 150
+    },
+    {
+      "productId": 5,
+      "quantity": 1,
+      "price": 50
+    }    
+  ]
+}
+.
+```
+
+- Recibimos la siguiente respuesta:
+
+```json
+HTTP/1.1 201 Created
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 332
+ETag: W/"14c-AIofHRxIQx+ijddzHrEPxd8XghQ"
+Date: Wed, 09 Apr 2025 13:19:58 GMT
+Connection: close
+
+{
+  "id": "342672aa-b5e8-4cde-be0b-b28902c990f0",
+  "totalAmount": 350,
+  "totalItems": 3,
+  "status": "PENDING",
+  "paid": false,
+  "paidAt": null,
+  "createdAt": "2025-04-09T13:19:58.504Z",
+  "updatedAt": "2025-04-09T13:19:58.504Z",
+  "OrderItem": [
+    {
+      "price": 150,
+      "quantity": 2,
+      "productId": 3,
+      "name": "Mouse"
+    },
+    {
+      "price": 50,
+      "quantity": 1,
+      "productId": 5,
+      "name": "Audífonos"
+    }
+  ]
+}
+```
+
+- Si ejecutamos la siguiente petición:
+
+```http
+### Obtener un pedido por ID
+GET {{url}}/id/342672aa-b5e8-4cde-be0b-b28902c990f0
+```
+
+- Recibimos la siguiente respuesta:
+
+```json
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 332
+ETag: W/"14c-AIofHRxIQx+ijddzHrEPxd8XghQ"
+Date: Wed, 09 Apr 2025 14:24:19 GMT
+Connection: close
+
+{
+  "id": "342672aa-b5e8-4cde-be0b-b28902c990f0",
+  "totalAmount": 350,
+  "totalItems": 3,
+  "status": "PENDING",
+  "paid": false,
+  "paidAt": null,
+  "createdAt": "2025-04-09T13:19:58.504Z",
+  "updatedAt": "2025-04-09T13:19:58.504Z",
+  "OrderItem": [
+    {
+      "price": 150,
+      "quantity": 2,
+      "productId": 3,
+      "name": "Mouse"
+    },
+    {
+      "price": 50,
+      "quantity": 1,
+      "productId": 5,
+      "name": "Audífonos"
+    }
+  ]
+}
+```

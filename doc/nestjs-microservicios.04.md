@@ -968,3 +968,553 @@ async function bootstrap() {
 }
 bootstrap();
 ```
+
+### 04.06. Añadir los items de la orden
+
+#### 04.06.01. Actualizar el document `prisma/schema.prisma` para añadir los items de la orden
+
+> 02-Products-App/orders-ms/prisma/schema.prisma
+
+```prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  DELIVERED
+  CANCELLED
+}
+
+model Order {
+  id          String @id @default(uuid())
+  totalAmount Float
+  totalItems  Int
+
+  status OrderStatus @default(PENDING)
+  paid   Boolean     @default(false)
+  paidAt DateTime?
+
+  OrderItem OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  productId Int
+  quantity  Int
+  price     Float
+
+  Order   Order?  @relation(fields: [orderId], references: [id])
+  orderId String?
+}
+```
+
+#### 04.06.02. Actualizar la base de datos usando el nuevo esquema
+
+- Vamos a actualizar la base de datos usando el nuevo esquema.
+
+```bash
+npx prisma migrate dev --name add-order-item
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "ordersdb", schema "public" at "localhost:5432"
+
+Applying migration `20250409093730_add_order_item`
+
+The following migration(s) have been created and applied from new schema changes:
+
+migrations/
+  └─ 20250409093730_add_order_item/
+    └─ migration.sql
+
+Your database is now in sync with your schema.
+
+✔ Generated Prisma Client (v6.5.0) to ./node_modules/@prisma/client in 105ms
+```
+
+- Podemos comprobar que se ha creado la tabla `OrderItem` en la base de datos.
+
+![Tabla OrderItem](./images/nestjs-microservicios.04.003.png)
+
+#### 04.06.03 Modificar los Dtos para añadir los items de la orden
+
+- Vamos a modificar los Dtos para añadir los items de la orden.
+- Creamos el Dto `order-item.dto.ts`
+
+> 02-Products-App/orders-ms/src/orders/dto/order-item.dto.ts
+
+```ts
+import { IsNumber, IsPositive } from 'class-validator';
+
+export class OrderItemDto {
+  @IsNumber()
+  @IsPositive()
+  productId: number;
+
+  @IsNumber()
+  @IsPositive()
+  quantity: number;
+
+  @IsNumber()
+  @IsPositive()
+  price: number;
+}
+```
+
+- Modificamos el Dto `create-order.dto.ts` para que use el Dto `order-item.dto.ts`.
+
+> 02-Products-App/orders-ms/src/orders/dto/create-order.dto.ts
+
+```ts
+import {
+  ArrayMinSize,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { OrderItemDto } from './order-item.dto';
+import { Type } from 'class-transformer';
+
+export class CreateOrderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
+}
+```
+
+#### 04.06.04. Modificar el servicio de Orders para cambiar el create method de OrderService
+
+> 02-Products-App/orders-ms/src/orders/orders.service.ts
+
+```ts
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { PrismaClient } from '@prisma/client';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
+import { RpcException } from '@nestjs/microservices';
+import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
+import { firstValueFrom } from 'rxjs';
+
+@Injectable()
+export class OrdersService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(OrdersService.name);
+
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('Connected to database');
+  }
+
+  async create(createOrderDto: CreateOrderDto) {
+    try {
+      //1 Confirmar los ids de los productos
+      const productIds = createOrderDto.items.map((item) => item.productId);
+      // const products: any[] = await firstValueFrom(
+      //   this.productsClient.send({ cmd: 'validate_products' }, productIds),
+      // );
+
+      //2. Cálculos de los valores
+      const totalAmount = createOrderDto.items.reduce((acc, orderItem) => {
+        return orderItem.price * orderItem.quantity;
+      }, 0);
+
+      const totalItems = createOrderDto.items.reduce((acc, orderItem) => {
+        return acc + orderItem.quantity;
+      }, 0);
+
+      //3. Crear una transacción de base de datos
+      const order = await this.order.create({
+        data: {
+          totalAmount: totalAmount,
+          totalItems: totalItems,
+          OrderItem: {
+            createMany: {
+              data: createOrderDto.items.map((orderItem) => ({
+                price: orderItem.price,
+                productId: orderItem.productId,
+                quantity: orderItem.quantity,
+              })),
+            },
+          },
+        },
+        include: {
+          OrderItem: {
+            select: {
+              price: true,
+              quantity: true,
+              productId: true,
+            },
+          },
+        },
+      });
+
+      return {
+        ...order,
+        OrderItem: order.OrderItem.map((orderItem) => ({
+          ...orderItem,
+        })),
+      };
+    } catch (error) {
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Check logs',
+      });
+    }
+  }
+
+  async findAll(orderPaginationDto: OrderPaginationDto) {
+    const { page, limit, status } = orderPaginationDto;
+
+    const totalPages = await this.order.count({
+      where: { status },
+    });
+    const lastPage = Math.ceil(totalPages / limit);
+
+    return {
+      data: await this.order.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: { status },
+      }),
+      meta: {
+        total: totalPages,
+        page,
+        lastPage,
+      },
+    };
+  }
+
+  async findOne(id: string) {
+    const order = await this.order.findFirst({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: `Order with id ${id} not found`,
+      });
+    }
+
+    return order;
+  }
+
+  async changeStatus(changeOrderStatusDto: ChangeOrderStatusDto) {
+    const { id, status } = changeOrderStatusDto;
+
+    const order = await this.findOne(id);
+    if (order.status === status) {
+      return order;
+    }
+
+    return this.order.update({
+      where: { id },
+      data: { status },
+    });
+  }
+}
+```
+
+- Se debe probar desde el microservicio de ClientGateway.
+
+### 04.07. Modificar orders para que se conecte con el microservicio de Products
+
+#### 04.07.01. Modificar el `.env` para poner el host y el puerto del microservicio de Products
+
+> 02-Products-App/orders-ms/.env
+
+```text
+PORT=3002
+PRODUCTS_MICROSERVICE_HOST=localhost
+PRODUCTS_MICROSERVICE_PORT=3001
+.
+```
+
+#### 04.07.02 Modificar `envs.ts` para que utilice las variables de entorno
+
+> 02-Products-App/orders-ms/src/config/envs.ts
+
+```ts
+import 'dotenv/config';
+
+import * as joi from 'joi';
+
+interface EnvVars {
+  PORT: number;
+  PRODUCTS_MICROSERVICE_HOST: string;
+  PRODUCTS_MICROSERVICE_PORT: number;  
+}
+
+const envsSchema = joi
+  .object({
+    PORT: joi.number().required(),
+    PRODUCTS_MICROSERVICE_HOST: joi.string().required(),
+    PRODUCTS_MICROSERVICE_PORT: joi.number().required(),
+  })
+  .unknown(true);
+
+const { error, value } = envsSchema.validate(process.env);
+
+if (error) {
+  throw new Error(`Config validation error: ${error.message}`);
+}
+
+const envVars: EnvVars = value;
+
+export const envs = {
+  port: envVars.PORT,
+  productsMicroserviceHost: envVars.PRODUCTS_MICROSERVICE_HOST,
+  productsMicroservicePort: envVars.PRODUCTS_MICROSERVICE_PORT,
+};
+```
+
+#### 04.07.03. Crear el documento `services.ts` para definir el nombre del microservicio de Products
+
+> 02-Products-App/orders-ms/src/config/services.ts
+
+```ts
+export const PRODUCT_SERVICE = 'PRODUCT_SERVICE';
+```
+
+#### 04.07.04. Modificar el documento `orders.module.ts` para que se conecte con el microservicio de Products
+
+> 02-Products-App/orders-ms/src/orders/orders.module.ts
+
+```ts
+import { Module } from '@nestjs/common';
+import { OrdersService } from './orders.service';
+import { OrdersController } from './orders.controller';
+import { ClientsModule, Transport } from '@nestjs/microservices';
+import { PRODUCT_SERVICE } from 'src/config/services';
+import { envs } from 'src/config';
+
+@Module({
+  controllers: [OrdersController],
+  providers: [OrdersService],
+  imports: [
+    ClientsModule.register([
+      {
+        name: PRODUCT_SERVICE,
+        transport: Transport.TCP,
+        options: {
+          host: envs.productsMicroserviceHost,
+          port: envs.productsMicroservicePort,
+        },
+      },
+    ]),
+  ],
+})
+export class OrdersModule {}
+```
+
+#### 04.07.05 Modificar el documento `orders.service.ts` para que se conecte con el microservicio de Products
+
+> 02-Products-App/orders-ms/src/orders/orders.service.ts
+
+```ts
+import { HttpStatus, Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { PrismaClient } from '@prisma/client';
+import { OrderPaginationDto } from './dto/order-pagination.dto';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
+import { firstValueFrom } from 'rxjs';
+import { PRODUCT_SERVICE } from 'src/config/services';
+
+const debug = false;
+
+@Injectable()
+export class OrdersService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(OrdersService.name);
+
+  
+  constructor(
+    @Inject(PRODUCT_SERVICE) private readonly productsClient: ClientProxy,
+  ) {
+    super();
+  }
+
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('Connected to database');
+  }
+
+  async create(createOrderDto: CreateOrderDto) {
+    try {
+      //1 Confirmar los ids de los productos
+      const productIds = createOrderDto.items.map((item) => item.productId);
+      if (debug) {
+        this.logger.debug(`Validating products ${productIds}`);
+      }
+      const products = await firstValueFrom(
+        this.productsClient.send({ cmd: 'validate-products' }, { ids: productIds }),
+      );
+      if (debug) {
+        this.logger.debug(`Products validated: ${JSON.stringify(products, null, 2)}`);
+      }
+
+      if (!products || products.length === 0) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Products not found',
+        });
+      }
+
+      //2. Cálculos de los valores
+      const totalAmount = createOrderDto.items.reduce((acc, orderItem) => {
+        const price = products.find(
+          (product: { id: number; }) => product.id === orderItem.productId,
+        ).price;
+        const total = price * orderItem.quantity;
+        if (debug) {
+          this.logger.debug(`Product ${orderItem.productId} price: ${price} total: ${total}`);
+        }
+        return acc + total;
+      }, 0);
+      if (debug) {
+        this.logger.debug(`Total amount: ${totalAmount}`);
+      }
+
+      const totalItems = createOrderDto.items.reduce((acc, orderItem) => {
+        return acc + orderItem.quantity;
+      }, 0);
+      if (debug) {
+        this.logger.debug(`Total items: ${totalItems}`);
+      }
+
+      //3. Crear una transacción de base de datos
+      const order = await this.order.create({
+        data: {
+          totalAmount: totalAmount,
+          totalItems: totalItems,
+          OrderItem: {
+            createMany: {
+              data: createOrderDto.items.map((orderItem) => ({
+                price: products.find(
+                  (product: { id: number; }) => product.id === orderItem.productId,
+                ).price,
+                productId: orderItem.productId,
+                quantity: orderItem.quantity,
+              })),
+            },
+          },
+        },
+        include: {
+          OrderItem: {
+            select: {
+              price: true,
+              quantity: true,
+              productId: true,
+            },
+          },
+        },
+      });
+      if (debug) {
+        this.logger.debug(`Order created: ${JSON.stringify(order, null, 2)}`);
+      }
+
+      return {
+        ...order,
+        OrderItem: order.OrderItem.map((orderItem) => ({
+          ...orderItem,
+          name: products.find((product: { id: number; }) => product.id === orderItem.productId)
+            .name,
+        })),
+      };
+    } catch (error) {
+      if (debug) {
+        this.logger.debug(`Error creating order: ${error.message}`);
+      }
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Check logs',
+      });
+    }
+  }
+
+  async findAll(orderPaginationDto: OrderPaginationDto) {
+    const { page, limit, status } = orderPaginationDto;
+
+    const totalPages = await this.order.count({
+      where: { status },
+    });
+    const lastPage = Math.ceil(totalPages / limit);
+
+    return {
+      data: await this.order.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: { status },
+      }),
+      meta: {
+        total: totalPages,
+        page,
+        lastPage,
+      },
+    };
+  }
+
+  async findOne(id: string) {
+    const order = await this.order.findFirst({
+      where: { id },
+      include: {
+        OrderItem: {
+          select: {
+            price: true,
+            quantity: true,
+            productId: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: `Order with id ${id} not found`,
+      });
+    }
+    const productIds = order.OrderItem.map((item) => item.productId);
+    const products = await firstValueFrom(
+      this.productsClient.send({ cmd: 'validate-products' }, { ids: productIds }),
+    );    
+
+    return {
+      ...order,
+      OrderItem: order.OrderItem.map((orderItem) => ({
+        ...orderItem,
+        name: products.find((product: { id: number; }) => product.id === orderItem.productId)
+          .name,
+      })),
+    };
+  }
+
+  async changeStatus(changeOrderStatusDto: ChangeOrderStatusDto) {
+    const { id, status } = changeOrderStatusDto;
+
+    const order = await this.findOne(id);
+    if (order.status === status) {
+      return order;
+    }
+
+    return this.order.update({
+      where: { id },
+      data: { status },
+    });
+  }
+}
+```
