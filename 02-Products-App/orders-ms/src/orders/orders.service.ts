@@ -5,7 +5,7 @@ import { OrderPaginationDto } from './dto/order-pagination.dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { ChangeOrderStatusDto } from './dto/change-order-status.dto';
 import { firstValueFrom } from 'rxjs';
-import { PRODUCT_SERVICE } from 'src/config/services';
+import { NATS_SERVICE } from 'src/config/services';
 
 const debug = false;
 
@@ -15,7 +15,7 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
 
   
   constructor(
-    @Inject(PRODUCT_SERVICE) private readonly productsClient: ClientProxy,
+    @Inject(NATS_SERVICE) private readonly client: ClientProxy,
   ) {
     super();
   }
@@ -33,7 +33,7 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
         this.logger.debug(`Validating products ${productIds}`);
       }
       const products = await firstValueFrom(
-        this.productsClient.send({ cmd: 'validate-products' }, { ids: productIds }),
+        this.client.send({ cmd: 'validate-products' }, { ids: productIds }),
       );
       if (debug) {
         this.logger.debug(`Products validated: ${JSON.stringify(products, null, 2)}`);
@@ -162,7 +162,7 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
     }
     const productIds = order.OrderItem.map((item) => item.productId);
     const products = await firstValueFrom(
-      this.productsClient.send({ cmd: 'validate-products' }, { ids: productIds }),
+      this.client.send({ cmd: 'validate-products' }, { ids: productIds }),
     );    
 
     return {
