@@ -9,6 +9,51 @@ services:
       POSTGRES_DB: ordersdb
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  nats-server:
+    image: nats:latest
+    ports:
+      - "8222:8222"
+      - "4222:4222"
+
+  client-gateway:
+    build: ./client-gateway
+    ports:
+      - "${CLIENT_GATEWAY_PORT}:3000"
+    volumes:
+      - ./client-gateway/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=3000
+      - NATS_SERVERS=nats://nats-server:4222
+
+  products-ms:
+    build: ./products-ms
+    volumes:
+      - ./products-ms/src:/usr/src/app/src
+    command: npm run docker:start
+    environment:
+      - PORT=3001
+      - NATS_SERVERS=nats://nats-server:4222
+      - DATABASE_URL=file:./dev.db
+
+  orders-ms:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    build: ./orders-ms
+    volumes:
+      - ./orders-ms/src:/usr/src/app/src
+    command: npm run docker:start
+    environment:
+      - PORT=3002
+      - DATABASE_URL=postgresql://postgres:example@postgres:5432/ordersdb
+      - NATS_SERVERS=nats://nats-server:4222      
 
 volumes:
   postgres_data:

@@ -27,7 +27,7 @@ GET {{url}}/CANCELLED?page=1&limit=10
 
 
 ### Obtener un pedido por ID
-GET {{url}}/id/342672aa-b5e8-4cde-be0b-b28902c990f0
+GET {{url}}/id/03c438a6-1f02-4c9a-a736-92f479d7d697
 
 ### Cambiar el estado de un pedido por ID
 PATCH {{url}}/fb41cf12-b788-4515-8f0f-e43ced10a4a4
