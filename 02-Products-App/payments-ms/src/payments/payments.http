@@ -1,0 +1,36 @@
+@url = http://localhost:3003/payments
+
+### Crear una sesión de pago
+POST {{url}}/create-payment-session
+Content-Type: application/json
+
+{
+  "orderId": "1234567890",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "Producto 1",
+      "price": 100,
+      "quantity": 1
+    },
+    {
+      "name": "Producto 2",
+      "price": 200,
+      "quantity": 2
+    }
+  ]
+}
+
+### Obtener confirmación de pago
+GET {{url}}/success
+
+### Obtener cancelación de pago
+GET {{url}}/cancel
+
+### Obtener webhook de Stripe
+POST {{url}}/webhook
+Content-Type: application/json
+
+{
+  "event": "payment_intent.succeeded"
+}

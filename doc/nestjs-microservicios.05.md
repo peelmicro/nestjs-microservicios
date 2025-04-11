@@ -34,7 +34,7 @@ Status: Downloaded newer image for nats:latest
 
 - Podemos acceder a la interfaz de administración de Nats en el puerto 8222 desde el navegador.
 
-![Nats Admin](nestjs-microservicios-05-01.png)
+![Nats Admin](nestjs-microservicios.05.001.png)
 
 ### 05.03 Cambiar los microservicios para que utilicen Nats
 
