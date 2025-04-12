@@ -1,13 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PaymentSessionDto } from './dto/payment-session.dto';
 import { envs } from 'src/config/envs';
 import Stripe from 'stripe';
+import { NATS_SERVICE } from 'src/config';
+import { ClientProxy } from '@nestjs/microservices';
 
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly stripe = new Stripe(envs.stripeSecret);
+
+  constructor(
+    @Inject(NATS_SERVICE) private readonly client: ClientProxy
+  ) {}
 
   async createPaymentSession(paymentSessionDto: PaymentSessionDto) {
     const { currency, items, orderId } = paymentSessionDto;
@@ -38,7 +44,11 @@ export class PaymentsService {
       cancel_url: envs.stripeCancelUrl,
     });
 
-    return session;
+    return {
+      cancelUrl: session.cancel_url,
+      successUrl: session.success_url,
+      url: session.url,
+    }
   }
 
   async stripeWebhook(req: Request, res: Response) {
@@ -75,11 +85,14 @@ export class PaymentsService {
     switch (event.type) {
       case 'charge.succeeded':
         const chargeSucceeded = event.data.object;
-        // TODO: llamar nuestro microservicio
-        this.logger.log({
-          metadata: chargeSucceeded.metadata,
+        const payload = {
+          stripePaymentId: chargeSucceeded.id,
           orderId: chargeSucceeded.metadata.orderId,
-        });
+          receiptUrl: chargeSucceeded.receipt_url,
+        }
+
+        // It doesn't wait for the response from the microservice of orders
+        this.client.emit('payment.succeeded', payload );
         break;
 
       default:

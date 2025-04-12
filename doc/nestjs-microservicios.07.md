@@ -83,14 +83,15 @@ npm run start
 - Vamos a utilizar el paquete `joi` para validar el archivo `.env`.
 - Vamos a instalar los paquetes de `class-transformer` y `class-validator` para que funcione correctamente las validaciones de los datos de los DTOs.
 - Vamos a instalar el paquete `@nestjs/microservices` para que funcione correctamente el microservicio.
+- Vamos a instalar el paquete `nats` para que funcione correctamente la conexión con otros microservicios.
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App/payments-ms$
-npm i stripe dotenv joi class-transformer class-validator @nestjs/microservices
+npm i stripe dotenv joi class-transformer class-validator @nestjs/microservices nats
 
 added 16 packages, and audited 813 packages in 5s
 
-148 packages are looking for funding
+151 packages are looking for funding
   run `npm fund` for details
 
 found 0 vulnerabilities
