@@ -33,7 +33,7 @@ services:
     command: npm run start:dev
     environment:
       - PORT=3000
-      - NATS_SERVERS=nats://nats-server:4222
+      - NATS_SERVERS=${NATS_SERVERS}
 
   products-ms:
     container_name: products-ms
@@ -43,7 +43,7 @@ services:
     command: npm run docker:start
     environment:
       - PORT=3001
-      - NATS_SERVERS=nats://nats-server:4222
+      - NATS_SERVERS=${NATS_SERVERS}
       - DATABASE_URL=file:./dev.db
 
   orders-ms:
@@ -58,7 +58,7 @@ services:
     environment:
       - PORT=3002
       - DATABASE_URL=postgresql://postgres:example@postgres:5432/ordersdb
-      - NATS_SERVERS=nats://nats-server:4222
+      - NATS_SERVERS=${NATS_SERVERS}
 
   payments-ms:
     container_name: payments-ms
@@ -76,5 +76,41 @@ services:
       - STRIPE_ENDPOINT_SECRET=${STRIPE_ENDPOINT_SECRET}      
       - NATS_SERVERS=${NATS_SERVERS}
 
+  mongodb:
+    container_name: mongodb
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb-keyfile:/data/keyfile
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    command: mongod --replSet rs0 --bind_ip_all --keyFile /data/keyfile
+    healthcheck:
+      test: ["CMD", "mongosh", "-u", "root", "-p", "example", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-ms:
+    container_name: auth-ms
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    build: ./auth-ms
+    volumes:
+      - ./auth-ms/src:/usr/src/app/src
+    command: npm run docker:start
+    ports:
+      - ${AUTH_MS_PORT}:${AUTH_MS_PORT}
+    environment:
+      - PORT=${AUTH_MS_PORT}
+      - NATS_SERVERS=${NATS_SERVERS}
+      - AUTH_DATABASE_URL=mongodb://root:example@mongodb:27017/auth?authSource=admin
+      - JWT_SECRET=${JWT_SECRET}
+
 volumes:
   postgres_data:
+  mongodb_data:

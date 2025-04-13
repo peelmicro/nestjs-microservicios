@@ -116,9 +116,9 @@ STRIPE_CANCEL_URL=http://localhost:3003/payments/cancel
 STRIPE_ENDPOINT_SECRET=whsec_
 ```
 
-### 08.03 Copiar y actualizar los archivos `Dockerfile` y `.dockerignore` del microservicio de pagos orders-ms en el directorio `02-Products-App/payments-ms`
+### 08.03 Copiar y actualizar los archivos `Dockerfile` y `.dockerignore` del microservicio de orders-ms en el directorio `02-Products-App/payments-ms`
 
-- Vamos a copiar el archivo `Dockerfile` y `.dockerignore` del microservicio de pagos orders-ms en el directorio `02-Products-App/payments-ms` y luego actualizar el archivo `Dockerfile` para que el puerto sea el 3003.
+- Vamos a copiar el archivo `Dockerfile` y `.dockerignore` del microservicio de orders-ms en el directorio `02-Products-App/payments-ms` y luego actualizar el archivo `Dockerfile` para que el puerto sea el 3003.
 
 > 02-Products-App/payments-ms/Dockerfile
 

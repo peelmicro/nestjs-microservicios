@@ -13,6 +13,8 @@
 
 ### 07.02 Creación del microservicio payments-ms
 
+- Vamos a crear el microservicio payments-ms usando el comando `nest new`.
+
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
 nest new payments-ms --skip-git
