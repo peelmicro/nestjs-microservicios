@@ -1,0 +1,51 @@
+# Dependencias
+FROM node:22-alpine AS deps
+
+WORKDIR /usr/src/app
+
+COPY package.json ./
+COPY package-lock.json ./
+
+RUN npm install
+
+# Builder - Construye la aplicación
+FROM node:22-alpine AS build
+
+WORKDIR /usr/src/app
+
+# Copiar de deps, los módulos de node
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+
+# Copiar todo el codigo fuente de la aplicación
+COPY . .
+
+# Add build argument and environment variable
+ARG ORDERS_DATABASE_URL
+ENV ORDERS_DATABASE_URL=$ORDERS_DATABASE_URL
+
+# Generate Prisma client first
+RUN npx prisma migrate deploy
+RUN npx prisma generate
+
+# Build the app
+RUN npm run build
+
+RUN npm ci -f --only=production && npm cache clean --force
+
+# Crear la imagen final de Docker
+FROM node:22-alpine AS prod
+
+WORKDIR /usr/src/app
+
+COPY --from=build /usr/src/app/node_modules ./node_modules
+
+# Copiar la carpeta de DIST
+COPY --from=build /usr/src/app/dist ./dist
+
+ENV NODE_ENV=production
+
+USER node
+
+EXPOSE 3000
+
+CMD [ "node", "dist/main.js" ]
