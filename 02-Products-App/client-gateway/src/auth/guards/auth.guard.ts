@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 
@@ -11,8 +12,11 @@ import { Request } from 'express';
 import { firstValueFrom } from 'rxjs';
 import { NATS_SERVICE } from 'src/config';
 
+const debug = false;
+
 @Injectable()
 export class AuthGuard implements CanActivate {
+  private readonly logger = new Logger(AuthGuard.name);
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -20,6 +24,9 @@ export class AuthGuard implements CanActivate {
     const token = this.extractTokenFromHeader(request);
     if (!token) {
       throw new UnauthorizedException('Token not found');
+    }
+    if (debug) {
+      this.logger.log('canActivate', { token });
     }
     try {
       const { user, token: newToken } = await firstValueFrom(

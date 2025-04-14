@@ -52,11 +52,10 @@ export class AuthController {
   @UseGuards( AuthGuard )
   @Get('verify')
   verifyToken( @User() user: CurrentUser, @Token() token: string  ) {
-
-    // const user = req['user'];
-    // const token = req['token'];
-
-    // return this.client.send('auth.verify.user', {});
+    if (debug) {
+      this.logger.log('verifyToken', { user, token });
+    }
+    // Validation of the token and the user is made in the AuthGuard
     return { user, token }
   }
 

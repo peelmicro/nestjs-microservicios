@@ -2,16 +2,22 @@
 
 ### Login
 # @name login
+POST {{url}}/login
+Content-Type: application/json
+
+{
+  "email": "usuario@gmail.com",
+  "password": "1234567!02JSJSJSssswd"
+}
 
 ### Install httpbin and run using docker with "docker run -p 80:80 kennethreitz/httpbin"
 GET http://0.0.0.0:80/anything
 Content-Type: application/json
-X-Full-Response: {{login.response.*}}
+X-Full-Response: {{login.response.body.*}}
 
 ### Crear un nuevo usuario
 POST {{url}}/register
 Content-Type: application/json
-X-Full-Response: {{login.response.*}}
 
 {
   "name": "Usuario XXX",
@@ -19,16 +25,6 @@ X-Full-Response: {{login.response.*}}
   "password": "1234567!02JSJSJSssswd"
 }
 
-### Iniciar sesión
-POST {{url}}/login
-Content-Type: application/json
-X-Full-Response: {{login.response.*}}
-{
-  "email": "usuario@gmail.com",
-  "password": "1234567!02JSJSJSssswd"
-}
-
 ### Verificar token
 GET {{url}}/verify
-Cookie: {{login.response.headers.Set-Cookie}}
-X-Full-Response: {{login.response.body.*}}
+Authorization: Bearer {{login.response.body.token}}
