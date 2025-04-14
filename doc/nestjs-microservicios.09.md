@@ -1439,7 +1439,7 @@ export interface CurrentUser {
 
 #### 09.10.03 Creación de la Guard `AuthGuard` para proteger los endpoints
 
-- Vamos a crear la guardia `AuthGuard` en el archivo `src/auth/guards/auth.guard.ts`.
+- Vamos a crear el Guard `AuthGuard` en el archivo `src/auth/guards/auth.guard.ts`.
 
 > 02-Products-App/client-gateway/src/auth/guards/auth.guard.ts
 
@@ -1551,7 +1551,6 @@ export class AuthController {
     // Validation of the token and the user is made in the AuthGuard
     return { user, token }
   }
-
 }
 ```
 
