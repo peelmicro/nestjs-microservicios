@@ -435,4 +435,3 @@ docker compose -f docker-compose.prod.yaml up -d
 ```
 
 ![Docker Compose](nestjs-microservicios.10.006.png)
-
