@@ -791,6 +791,7 @@ latest: digest: sha256:0d6d4030d90459bab71891d6e7c80686ccf0a982dceb4935459e9c919
 ```yaml
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    dir: "02-Products-App/auth-ms"
     args:
       [
         "build",
@@ -816,6 +817,7 @@ options:
 ```yaml
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    dir: "02-Products-App/client-gateway"
     args:
       [
         "build",
@@ -841,6 +843,7 @@ options:
 ```yaml
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    dir: "02-Products-App/orders-ms"
     args:
       [
         "build",
@@ -866,6 +869,7 @@ options:
 ```yaml 
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    dir: "02-Products-App/payments-ms"
     args:
       [
         "build",
@@ -891,6 +895,7 @@ options:
 ```yaml
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    dir: "02-Products-App/products-ms"
     args:
       [
         "build",
