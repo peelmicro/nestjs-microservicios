@@ -962,5 +962,3 @@ options:
 - Vamos a crear los triggers para el resto de microservicios de la misma forma.
 
 ![Create trigger](nestjs-microservicios.11.041.png)
-
--
