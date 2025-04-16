@@ -1119,8 +1119,7 @@ ERROR: build step 0 "gcr.io/cloud-builders/docker" failed: step exited with non-
 
 ![Secret created](nestjs-microservicios.11.048.png)
 
-- Tenemos que asignar el permiso de `Secret Manager Secret Accessor` al usuario 
-- `720856412725@cloudbuild.gserviceaccount.com` para que pueda acceder a la secret.
+- Tenemos que asignar el permiso de `Secret Manager Secret Accessor` al usuario  `720856412725-compute@developer.gserviceaccount.com` para que pueda acceder a la secret.
 
 ![Assign permission](nestjs-microservicios.11.049.png)
 
