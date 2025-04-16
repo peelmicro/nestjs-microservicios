@@ -97,7 +97,6 @@
 
 ![Instrucciones](nestjs-microservicios.11.020.png)
 
-
 - Tenemos que instalar `gcloud cli` y hacer login con nuestro usuario de Google Cloud Platform.
 
 ```bash
@@ -146,7 +145,7 @@ ACTIVE  ACCOUNT
 *       ixxo@exxxz.onxxne
 ```
 
-- Si vemos que esa cuenta tenemos que loggarnos con la nueva cuenta haciendo:
+- Si vemos que esa cuenta tenemos que loguearnos con la nueva cuenta haciendo:
 
 ```bash
 gcloud auth login --account=your-test-account@email.com
@@ -500,7 +499,8 @@ latest: digest: sha256:2c7ef955a09942226ce066ba15dd3a795e83240d8bae05e9faa432f70
 ```text
 .
 DOCKER_REGISTRY_SERVER=europe-southwest1-docker.pkg.dev
-DOCKER_REGISTRY_PROJECT=nestjs-microservicios-456909
+DOCKER_PROJECT_ID=nestjs-microservicios-456909
+DOCKER_REGISTRY_PROJECT=nestjs-microservicios
 ```
 
 - Vamos a modificar el archivo `docker-compose.prod.yaml` para generar todas las imágenes de forma semiautomática.
@@ -762,6 +762,8 @@ latest: digest: sha256:0d6d4030d90459bab71891d6e7c80686ccf0a982dceb4935459e9c919
 
 ### 11.10 CI/CD con Google Cloud Build
 
+#### 11.10.01 Configurar Google Cloud Build
+
 - Vamos a utilizar Google Cloud Build para generar las imágenes de forma automática.
 
 ![Seleccionar Google Cloud Build](nestjs-microservicios.11.025.png)
@@ -778,11 +780,176 @@ latest: digest: sha256:0d6d4030d90459bab71891d6e7c80686ccf0a982dceb4935459e9c919
 
 ![No hay nada configurado](nestjs-microservicios.11.028.png)
 
+#### 11.10.02 Crear los documentos de configuración de Google Cloud Build
+
+- Por cada microservicio tenemos que crear un documento de configuración de Google Cloud Build.
+- Este documento se debe poner en el directorio raíz de cada microservicio.
+- Google Cloud Build se basará en el contenido del documento para generar la imagen y subirla al repositorio de Google Container Registry.
+
+> 02-Products-App/auth-ms/cloudbuild.yaml
+
+```yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms",
+        "-f",
+        "dockerfile.prod",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms",
+      ]
+```
+
+> 02-Products-App/client-gateway/cloudbuild.yaml
+
+```yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/client-gateway",
+        "-f",
+        "dockerfile.prod",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/client-gateway",
+      ]
+```
+
+> 02-Products-App/orders-ms/cloudbuild.yaml
+
+```yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
+        "-f",
+        "dockerfile.prod",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
+      ]
+```
+
+> 02-Products-App/payments-ms/cloudbuild.yaml
+
+```yaml 
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms",
+        "-f",
+        "dockerfile.prod",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms",
+      ]
+```
+
+> 02-Products-App/products-ms/cloudbuild.yaml
+
+```yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms",
+        "-f",
+        "dockerfile.prod",
+        "--platform=linux/amd64",
+        ".",
+      ]
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms",
+      ]
+```
+
+#### 11.10.03 Crear un trigger por cada microservicio
+
 - Tenemos que crear un `trigger` por cada microservicio para que se generen las imágenes de forma automática:
 
 ![Set up build triggers](nestjs-microservicios.11.029.png)
 
+- Empecemos por el trigger para `auth-ms`
 
+![Create trigger](nestjs-microservicios.11.030.png)
 
+- Nos va a solicitar que conectemos con un repositorio.
+- Seleccionamos `GitHub`.
 
+![Connect repository](nestjs-microservicios.11.031.png)
+
+- Después de autenticarnos en GitHub para que Google Cloud Build pueda acceder a nuestro repositorio, puede detectar que Google Cloud Build no está instalado en ningún directorio del repositorio.
+- Tenemos que añadir la cuenta de GitHub para que pueda acceder a nuestro repositorio.
+
+![No Google Cloud Build](nestjs-microservicios.11.032.png)
+
+- Vamos a instalar Google Cloud Build en el repositorio.
+
+![Install Google Cloud Build](nestjs-microservicios.11.033.png)
+
+- Seleccionamos que solamente se instale en algunos repositorios.
+
+![Install Google Cloud Build in some repositories](nestjs-microservicios.11.034.png)
+
+- Seleccionamos el repositorio `nestjs-microservicios`.
+
+![Select repository](nestjs-microservicios.11.035.png)
+
+- Luego hay que seleccionar el repositorio `nestjs-microservicios` dónde se conectará Google Cloud Build.
+
+![Select repository](nestjs-microservicios.11.036.png)
+
+- Hay que poner en en trigger los datos por defecto o los que se ven en estas imágenes:
+
+![Set up trigger - 1](nestjs-microservicios.11.037.png)
+
+![Set up trigger - 2](nestjs-microservicios.11.038.png)
+
+![Set up trigger - 3](nestjs-microservicios.11.039.png)
+
+- Tenemos que asegurarnos que el trigger se ha creado correctamente:
+
+![Trigger created](nestjs-microservicios.11.040.png)
+
+- Vamos a crear los triggers para el resto de microservicios de la misma forma.
+
+![Create trigger](nestjs-microservicios.11.041.png)
 
