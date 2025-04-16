@@ -967,3 +967,182 @@ options:
 - Vamos a crear los triggers para el resto de microservicios de la misma forma.
 
 ![Create trigger](nestjs-microservicios.11.041.png)
+
+### 11.11 Hacer un commit y ver cómo se genera la imagen y se sube al repositorio de Google Container Registry
+
+- Una vez hecho el `git push` de los cambios, vamos a ver cómo se genera la imagen y se sube al repositorio de Google Container Registry.
+- Si nos vamos a `Cloud Build` History podemos ver cómo se ha generado la imagen y se ha subido al repositorio de Google Container Registry.
+
+![Build started](nestjs-microservicios.11.042.png)
+
+- Pero el microservicio `orders-ms` no se ha generado con el siguiente error:
+
+```text
+starting build "ccbd037c-ed0a-4a7c-be66-000f4ecd984d"
+FETCHSOURCE
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+Initialized empty Git repository in /workspace/.git/
+From https://github.com/peelmicro/nestjs-microservicios
+ * branch            a6950e3116f15a938362164ab7dc8ef21ebceabc -> FETCH_HEAD
+HEAD is now at a6950e3 Set up con Google Cloud - Añadido dir to the cloudbuild.yaml documents
+GitCommit:
+a6950e3116f15a938362164ab7dc8ef21ebceabc
+BUILD
+Starting Step #0
+Already have image (with digest): gcr.io/cloud-builders/docker
+Sending build context to Docker daemon  487.9kB
+Step 1/23 : FROM node:22-alpine AS deps
+22-alpine: Pulling from library/node
+f18232174bc9: Already exists
+cb2bde55f71f: Pulling fs layer
+9d0e0719fbe0: Pulling fs layer
+6f063dbd7a5d: Pulling fs layer
+6f063dbd7a5d: Verifying Checksum
+6f063dbd7a5d: Download complete
+9d0e0719fbe0: Verifying Checksum
+9d0e0719fbe0: Download complete
+cb2bde55f71f: Verifying Checksum
+cb2bde55f71f: Download complete
+cb2bde55f71f: Pull complete
+9d0e0719fbe0: Pull complete
+6f063dbd7a5d: Pull complete
+Digest: sha256:9bef0ef1e268f60627da9ba7d7605e8831d5b56ad07487d24d1aa386336d1944
+Status: Downloaded newer image for node:22-alpine
+ ---> 33544e83793c
+Step 2/23 : WORKDIR /usr/src/app
+ ---> Running in 7a7c286dca81
+Removing intermediate container 7a7c286dca81
+ ---> 55936cb8173e
+Step 3/23 : COPY package.json ./
+ ---> 410728ebef0f
+Step 4/23 : COPY package-lock.json ./
+ ---> a6b6abf86d38
+Step 5/23 : RUN npm install
+ ---> Running in 58eb38c9b535
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+added 816 packages, and audited 817 packages in 21s
+147 packages are looking for funding
+  run `npm fund` for details
+1 moderate severity vulnerability
+To address all issues, run:
+  npm audit fix
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.9.2 -> 11.3.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.3.0
+npm notice To update run: npm install -g npm@11.3.0
+npm notice
+Removing intermediate container 58eb38c9b535
+ ---> 485f8e174d04
+Step 6/23 : FROM node:22-alpine AS build
+ ---> 33544e83793c
+Step 7/23 : WORKDIR /usr/src/app
+ ---> Using cache
+ ---> 55936cb8173e
+Step 8/23 : COPY --from=deps /usr/src/app/node_modules ./node_modules
+ ---> 7dc4ed98d5a9
+Step 9/23 : COPY . .
+ ---> a2b48b499965
+Step 10/23 : ARG ORDERS_DATABASE_URL
+ ---> Running in b60fdfbbbf23
+Removing intermediate container b60fdfbbbf23
+ ---> d22288e09d3c
+Step 11/23 : ENV ORDERS_DATABASE_URL=$ORDERS_DATABASE_URL
+ ---> Running in 2405843879a0
+Removing intermediate container 2405843879a0
+ ---> 730b91cb2888
+Step 12/23 : RUN npx prisma migrate deploy
+ ---> Running in 8b9d9ac1db98
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database
+Error: Prisma schema validation - (get-config wasm)
+Error code: P1012
+error: Error validating datasource `db`: You must provide a nonempty URL. The environment variable `ORDERS_DATABASE_URL` resolved to an empty string.
+  -->  prisma/schema.prisma:13
+   | 
+12 |   provider = "postgresql"
+13 |   url      = env("ORDERS_DATABASE_URL")
+   | 
+Validation Error Count: 1
+[Context: getConfig]
+Prisma CLI Version : 6.5.0
+npm notice
+npm notice New major version of npm available! 10.9.2 -> 11.3.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.3.0
+npm notice To update run: npm install -g npm@11.3.0
+npm notice
+The command '/bin/sh -c npx prisma migrate deploy' returned a non-zero code: 1
+Finished Step #0
+ERROR
+ERROR: build step 0 "gcr.io/cloud-builders/docker" failed: step exited with non-zero status: 1
+
+
+![Build finished](nestjs-microservicios.11.043.png)
+```
+
+- Como se puede ver, el error es que el microservicio `orders-ms` no tiene configurado el `ORDERS_DATABASE_URL` en el archivo `.env`.
+- Pero ese archivo no existe en el repositorio.
+
+### 11.12 Habilitar `Google Secret Manager` para poder usar variables de entorno secretas
+
+- Tenemos que habilitar `Google Secret Manager` para poder usar variables de entorno secretas.
+- Buscamos `Secret Manager` en el buscador de Google Cloud Platform.
+
+![Enable Secret Manager](nestjs-microservicios.11.044.png)
+
+- Tenemos que habilitar `Secret Manager API` para poder usar variables de entorno secretas.
+
+![Enable Secret Manager API](nestjs-microservicios.11.045.png)
+
+- Vamos a crear una nueva secret para el microservicio `orders-ms`:
+
+![Create secret](nestjs-microservicios.11.046.png)
+
+- Añadimos el `ORDERS_DATABASE_URL` con el valor de la variable de entorno de Google Cloud SQL.
+
+![Add ORDERS_DATABASE_URL](nestjs-microservicios.11.047.png)
+
+- Vemos que se ha creado la secret:
+
+![Secret created](nestjs-microservicios.11.048.png)
+
+- Para poder usar la secret, tenemos que añadir el siguiente código en el archivo `cloudbuild.yaml`:
+
+> 02-Products-App/orders-ms/cloudbuild.yaml
+
+```yaml
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: 'bash'
+    dir: "02-Products-App/orders-ms"
+    args:
+      - -c
+      - |
+        docker build -t europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms -f dockerfile.prod --platform=linux/amd64 --build-arg ORDERS_DATABASE_URL=$$ORDERS_DATABASE_URL .
+    secretEnv: ['ORDERS_DATABASE_URL']
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "push",
+        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
+      ]
+availableSecrets:
+  secretManager:
+    - versionName: projects/720856412725/secrets/ORDERS_DATABASE_URL/versions/1
+      env: 'ORDERS_DATABASE_URL'      
+options:
+  logging: CLOUD_LOGGING_ONLY
+```

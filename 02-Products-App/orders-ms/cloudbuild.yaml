@@ -1,21 +1,21 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
+    entrypoint: 'bash'
     dir: "02-Products-App/orders-ms"
     args:
-      [
-        "build",
-        "-t",
-        "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
-        "-f",
-        "dockerfile.prod",
-        "--platform=linux/amd64",
-        ".",
-      ]
+      - -c
+      - |
+        docker build -t europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms -f dockerfile.prod --platform=linux/amd64 --build-arg ORDERS_DATABASE_URL=$$ORDERS_DATABASE_URL .
+    secretEnv: ['ORDERS_DATABASE_URL']
   - name: "gcr.io/cloud-builders/docker"
     args:
       [
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
       ]
+availableSecrets:
+  secretManager:
+    - versionName: projects/720856412725/secrets/ORDERS_DATABASE_URL/versions/1
+      env: 'ORDERS_DATABASE_URL'      
 options:
   logging: CLOUD_LOGGING_ONLY
