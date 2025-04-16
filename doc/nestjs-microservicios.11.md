@@ -807,6 +807,8 @@ steps:
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms",
       ]
+options:
+  logging: CLOUD_LOGGING_ONLY      
 ```
 
 > 02-Products-App/client-gateway/cloudbuild.yaml
@@ -830,6 +832,8 @@ steps:
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/client-gateway",
       ]
+options:
+  logging: CLOUD_LOGGING_ONLY      
 ```
 
 > 02-Products-App/orders-ms/cloudbuild.yaml
@@ -853,6 +857,8 @@ steps:
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms",
       ]
+options:
+  logging: CLOUD_LOGGING_ONLY      
 ```
 
 > 02-Products-App/payments-ms/cloudbuild.yaml
@@ -876,6 +882,8 @@ steps:
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms",
       ]
+options:
+  logging: CLOUD_LOGGING_ONLY      
 ```
 
 > 02-Products-App/products-ms/cloudbuild.yaml
@@ -899,6 +907,8 @@ steps:
         "push",
         "europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms",
       ]
+options:
+  logging: CLOUD_LOGGING_ONLY      
 ```
 
 #### 11.10.03 Crear un trigger por cada microservicio
