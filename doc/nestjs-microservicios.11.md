@@ -1150,3 +1150,7 @@ availableSecrets:
 options:
   logging: CLOUD_LOGGING_ONLY
 ```
+
+- Tenemos que asegurarnos de que todas las imágenes se han generado correctamente:
+
+![Build finished](nestjs-microservicios.11.050.png)
