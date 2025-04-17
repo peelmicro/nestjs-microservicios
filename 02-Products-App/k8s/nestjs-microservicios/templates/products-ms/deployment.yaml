@@ -3,27 +3,29 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    app: client-gateway
-  name: client-gateway
+    app: products
+  name: products
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: client-gateway
+      app: products
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: client-gateway
+        app: products
     spec:
       containers:
-      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/client-gateway:latest
-        name: client-gateway
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms:latest
+        name: products-ms
         resources: {}
         env:
           - name: PORT
-            value: "3000"
+            value: "3001"
           - name: NATS_SERVERS
             value: "nats://nats-server"
+          - name: PRODUCTS_DATABASE_URL
+            value: "file:./dev.db"
 status: {}

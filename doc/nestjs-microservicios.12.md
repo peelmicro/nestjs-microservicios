@@ -138,7 +138,7 @@ drwxr-xr-x 3 juanpabloperez juanpabloperez 4096 Apr 16 17:24 templates
 - Podemos borrar el contenido del documento `values.yaml` y dejarlo en blanco.
 - Podemos borrar todos los archivos de la carpeta `templates` porque vamos a empezar desde cero.
 
-### 12.03 Creación del primer `deployment`
+### 12.03 Creación del primer `deployment` para el microservicio de `client-gateway`
 
 - Tenemos que crear la carpeta `client-gateway` en la carpeta `templates`.
 
@@ -612,3 +612,1231 @@ kubectl logs client-gateway-646498669-rnvcl
 [Nest] 1  - 04/16/2025, 5:21:24 PM     LOG [Main-Gateway] Gateway running on port 3000
 ```
 
+### 12.06 Crear un servicio de Kubernetes para el microservicio de Client Gateway para que se pueda acceder a él desde fuera del cluster
+
+- Vamos a crear un servicio de Kubernetes para el microservicio de Client Gateway para que se pueda acceder a él desde fuera del cluster.
+- Vamos a crear un archivo `service.yaml` en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/client-gateway`.
+- Vamos a utilizar `kubectl create service` para crear el servicio.
+
+```bash
+~/Training/microservices/nestjs-microservicios$
+cd 02-Products-App/k8s/nestjs-microservicios/templates/client-gateway
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/client-gateway$ 
+kubectl create service nodeport client-gateway --tcp=3000 --dry-run=client -o yaml > service.yaml
+```
+
+- Vemos que el servicio se ha creado correctamente.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/client-gateway/service.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: client-gateway
+  name: client-gateway
+spec:
+  ports:
+  - name: "3000"
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: client-gateway
+  type: NodePort
+status:
+  loadBalancer: {}
+```
+
+- Vamos a aplicar el servicio al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 13:12:49 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 6
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS    RESTARTS        AGE
+client-gateway-646498669-rnvcl   1/1     Running   1 (7h56m ago)   17h
+```
+
+- Vamos a ver el estado de los servicios en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get services
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+client-gateway   NodePort    10.107.98.249   <none>        3000:30940/TCP   34s
+kubernetes       ClusterIP   10.96.0.1       <none>        443/TCP          20h
+```
+
+- Cambiamos el documento `02-Products-App/client-gateway/src/products/products.http` para que use el servicio de Kubernetes. Y ejecutamos uno de los endpoints.
+
+> 02-Products-App/client-gateway/src/products/products.http
+
+```diff
+.
+# URL del servicio de Kubernetes
+@url = http://localhost:30940/api/products
+
+### Obtener todos los productos
+GET {{url}}?page=1&limit=10
+
+```
+
+- Vemos la respuesta del endpoint.
+
+```JSON
+HTTP/1.1 500 Internal Server Error
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 52
+ETag: W/"34-rlKccw1E+/fV8niQk4oFitDfPro"
+Date: Thu, 17 Apr 2025 11:19:03 GMT
+Connection: close
+
+{
+  "statusCode": 500,
+  "message": "Internal server error"
+}
+```
+
+- Vemos que tenemos un error de servidor interno, pero controlado por el microservicio.
+- Vamos a ver los logs del pod.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs client-gateway-646498669-rnvcl 
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] AppModule dependencies initialized +11ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] NatsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] ProductsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] OrdersModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] AuthModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] ProductsController {/api/products}: +6ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products, POST} route +3ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, DELETE} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, PATCH} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] OrdersController {/api/orders}: +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders, POST} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/:status, GET} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/id/:id, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/:id, PATCH} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] AuthController {/api/auth}: +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/register, POST} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/login, POST} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/verify, GET} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [NestApplication] Nest application successfully started +2ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [Main-Gateway] Gateway running on port 3000
+[Nest] 1  - 04/17/2025, 11:19:03 AM   ERROR [ExceptionsHandler] Error: getaddrinfo ENOTFOUND nats-server
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'nats-server'
+}
+```
+
+- Vemos que el error es que no se ha podido encontrar el servicio de `NATS`.
+- El motivo es que no tenemos el microservicio de `NATS` instalado y configurado para el helm chart
+
+### 12.07 Instalar el microservicio de NATS
+
+- Vamos a instalar el microservicio de NATS creando un deployment.yaml en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/nats` usando `kubectl create deployment` y un servicio usando `kubectl create service clusterip`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+mkdir nats
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+cd nats
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/nats$
+kubectl create deployment nats-server --image=nats:latest --dry-run=client -o yaml > deployment.yaml
+```
+
+- Podemos ver el archivo `deployment.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/nats/deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nats-server
+  name: nats-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nats-server
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nats-server
+    spec:
+      containers:
+      - image: nats:latest
+        name: nats
+        resources: {}
+status: {}
+```
+
+- Vamos a desplegar el microservicio de NATS en el cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 14:37:26 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 7
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS    RESTARTS     AGE
+client-gateway-646498669-rnvcl   1/1     Running   1 (9h ago)   19h
+nats-server-86f8857d9d-rqhfm     1/1     Running   0            40s
+```
+
+- Vamos a crear un servicio para el microservicio de NATS usando `kubectl create service clusterip`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/nats$
+kubectl create service clusterip nats-server --tcp=4222 --dry-run=client -o yaml > service.yaml
+```
+
+- Podemos ver el archivo `service.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/nats/service.yaml
+
+```yamlapiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nats-server
+  name: nats-server
+spec:
+  ports:
+  - name: "4222"
+    port: 4222
+    protocol: TCP
+    targetPort: 4222
+  selector:
+    app: nats-server
+  type: ClusterIP
+status:
+  loadBalancer: {}
+```
+
+- Vamos a aplicar el servicio al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 14:42:56 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 8
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los servicios en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get services
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+client-gateway   NodePort    10.107.98.249   <none>        3000:30940/TCP   90m
+kubernetes       ClusterIP   10.96.0.1       <none>        443/TCP          21h
+nats-server      ClusterIP   10.108.36.158   <none>        4222/TCP         26s
+```
+
+- Ejecutando el documento `02-Products-App/client-gateway/src/products/products.http` vemos que el microservicio de NATS no está funcionando, con el mismo error que antes.
+
+```JSON
+HTTP/1.1 500 Internal Server Error
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 52
+ETag: W/"34-rlKccw1E+/fV8niQk4oFitDfPro"
+Date: Thu, 17 Apr 2025 12:44:47 GMT
+Connection: close
+
+{
+  "statusCode": 500,
+  "message": "Internal server error"
+}
+```
+
+- Vamos a ver los logs del microservicio de NATS.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs client-gateway-646498669-rnvcl 
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] AppModule dependencies initialized +11ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] NatsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] ProductsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] OrdersModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [InstanceLoader] AuthModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] ProductsController {/api/products}: +6ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products, POST} route +3ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, DELETE} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/products/:id, PATCH} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] OrdersController {/api/orders}: +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders, POST} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/:status, GET} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/id/:id, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/orders/:id, PATCH} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RoutesResolver] AuthController {/api/auth}: +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/register, POST} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/login, POST} route +1ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [RouterExplorer] Mapped {/api/auth/verify, GET} route +0ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [NestApplication] Nest application successfully started +2ms
+[Nest] 1  - 04/17/2025, 3:18:07 AM     LOG [Main-Gateway] Gateway running on port 3000
+[Nest] 1  - 04/17/2025, 11:19:03 AM   ERROR [ExceptionsHandler] Error: getaddrinfo ENOTFOUND nats-server
+    at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:120:26) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'nats-server'
+}
+[Nest] 1  - 04/17/2025, 12:44:47 PM   ERROR [ExceptionsHandler] NatsError: TIMEOUT
+    at NatsError.errorForCode (/usr/src/app/node_modules/nats/lib/nats-base-client/core.js:143:16)
+    at timeout (/usr/src/app/node_modules/nats/lib/nats-base-client/util.js:69:48)
+    at ProtocolHandler.<anonymous> (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:415:44)
+    at Generator.next (<anonymous>)
+    at /usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:8:71
+    at new Promise (<anonymous>)
+    at __awaiter (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:4:12)
+    at ProtocolHandler.dial (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:411:16)
+    at ProtocolHandler.<anonymous> (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:482:32)
+    at Generator.next (<anonymous>) {
+  code: 'TIMEOUT',
+  chainedError: undefined
+}
+```
+
+- No puede conectar con el microservicio de NATS porque no está configurado correctamente.
+- Tenemos que cambiar el deployment del microservicio de client-gateway para que se conecte al microservicio de NATS correctamente.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/client-gateway/deployment.yaml
+
+```diff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: client-gateway
+  name: client-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client-gateway
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: client-gateway
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/client-gateway:latest
+        name: client-gateway
+        resources: {}
+        env:
+          - name: PORT
+            value: "3000"
+          - name: NATS_SERVERS
+            # No hay que poner ningún puerto
++           value: "nats://nats-server"
+status: {}
+```
+
+- Una vez que aplicacos el deployment al cluster usando `helm upgrade` y ejecutamos el documento `02-Products-App/client-gateway/src/products/products.http` vemos que el error es diferente.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS        RESTARTS     AGE
+client-gateway-646498669-rnvcl   1/1     Terminating   1 (9h ago)   19h
+client-gateway-6dfc9847f-826tr   1/1     Running       0            14s
+nats-server-86f8857d9d-rqhfm     1/1     Running       0            13m
+```
+
+- Al ver los logs del microservicio de client-gateway vemos que el error es diferente.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$ kubectl logs client-gateway-6dfc9847f-826tr
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] AppModule dependencies initialized +14ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] NatsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] ProductsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] OrdersModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [InstanceLoader] AuthModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RoutesResolver] ProductsController {/api/products}: +5ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/products, POST} route +3ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/products, GET} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/products/:id, GET} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/products/:id, DELETE} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/products/:id, PATCH} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RoutesResolver] OrdersController {/api/orders}: +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/orders, POST} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/orders, GET} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/orders/:status, GET} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/orders/id/:id, GET} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/orders/:id, PATCH} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RoutesResolver] AuthController {/api/auth}: +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/auth/register, POST} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/auth/login, POST} route +0ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [RouterExplorer] Mapped {/api/auth/verify, GET} route +1ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [NestApplication] Nest application successfully started +2ms
+[Nest] 1  - 04/17/2025, 12:51:06 PM     LOG [Main-Gateway] Gateway running on port 3000
+[Nest] 1  - 04/17/2025, 12:52:21 PM   ERROR [ExceptionsHandler] EmptyResponseException [Error]: Empty response. There are no subscribers listening to that message ("{"cmd":"create-product"}")
+    at SubscriptionImpl.callback (/usr/src/app/node_modules/@nestjs/microservices/client/client-nats.js:115:26)
+    at ProtocolHandler.processMsg (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:615:17)
+    at ProtocolHandler.push (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:722:22)
+    at Parser.parse (/usr/src/app/node_modules/nats/lib/nats-base-client/parser.js:212:41)
+    at ProtocolHandler.<anonymous> (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:426:45)
+    at Generator.next (<anonymous>)
+    at fulfilled (/usr/src/app/node_modules/nats/lib/nats-base-client/protocol.js:5:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+```
+
+- Vemos que el error es que no hay ningún suscriptor escuchando el mensaje `{"cmd":"create-product"}`.
+- Tenemos que crear el deployment del microservicio de products.
+
+### 12.08 Crear el deployment del microservicio de products
+
+- Vamos a crear el deployment del microservicio de products en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/products`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+mkdir products
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+cd products
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/products$
+kubectl create deployment products --image=europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms:latest --dry-run=client -o yaml > deployment.yaml
+```
+
+- Podemos ver el archivo `deployment.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/products/deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: products
+  name: products
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: products
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms:latest
+        name: products-ms
+        resources: {}
+status: {}
+```
+
+- Tenemos que añadir las variables de entorno al deployment del microservicio de products.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/products/deployment.yaml
+
+```diff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: products
+  name: products
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: products
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: products
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/products-ms:latest
+        name: products-ms
+        resources: {}
++       env:
++         - name: PORT
++           value: "3001"
++         - name: NATS_SERVERS
++           value: "nats://nats-server"
++         - name: PRODUCTS_DATABASE_URL
++           value: "file:./dev.db"
+status: {}
+```
+
+- Vamos a aplicar el deployment al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 15:13:39 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 13
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+client-gateway-6dfc9847f-826tr   1/1     Running   0          22m
+nats-server-86f8857d9d-rqhfm     1/1     Running   0          36m
+products-7b6d948797-ff59z        1/1     Running   0          17s
+```
+
+- Vamos a ejecutar el endpoint `02-Products-App/client-gateway/src/products/products.http` y vemos que el microservicio de products está funcionando.
+- Obtenemos esta respuesta:
+
+```JSON
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 1393
+ETag: W/"571-7PPTjxFYsXwlEt1GqPWuYpn4J3w"
+Date: Thu, 17 Apr 2025 13:14:36 GMT
+Connection: close
+
+{
+  "data": [
+    {
+      "id": 3,
+      "name": "Mouse",
+      "price": 150,
+      "available": true,
+      "createdAt": "2024-02-27T15:50:41.977Z",
+      "updatedAt": "2024-02-27T15:50:41.977Z"
+    },
+    {
+      "id": 4,
+      "name": "Monitor",
+      "price": 150,
+      "available": true,
+      "createdAt": "2024-02-27T15:50:47.955Z",
+      "updatedAt": "2024-02-27T15:50:47.955Z"
+    },
+    {
+      "id": 5,
+      "name": "Audífonos",
+      "price": 50,
+      "available": true,
+      "createdAt": "2024-02-27T15:50:48.406Z",
+      "updatedAt": "2024-02-27T15:50:48.406Z"
+    },
+    .
+  ],
+  "meta": {
+    "total": 47,
+    "page": 1,
+    "lastPage": 5
+  }
+```
+
+- Vamos a ver los logs del microservicio de products.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs products-7b6d948797-ff59z
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [InstanceLoader] AppModule dependencies initialized +12ms
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [InstanceLoader] ProductsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [ProductsService] Connected to the database
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [NestMicroservice] Nest microservice successfully started +80ms
+[Nest] 1  - 04/17/2025, 1:13:42 PM     LOG [Main] Products Microservice running on port 3001
+```
+
+### 12.09 Crear el deployment del microservicio de orders
+
+- Vamos a crear el deployment del microservicio de orders en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/orders`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+mkdir orders-ms
+juanpabloperez@jpp-PROX15-AMD:~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+cd orders-ms
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/orders-ms$
+kubectl create deployment orders-ms --image=europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms:latest --dry-run=client -o yaml > deployment.yaml
+```
+
+- Podemos ver el archivo `deployment.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/orders-ms/deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: orders-ms
+  name: orders-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: orders-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms:latest
+        name: orders-ms
+        resources: {}
+status: {}
+```
+
+- Vamos a añadir las variables de entorno al deployment del microservicio de orders.
+- La variable de `ORDERS_DATABASE_URL` no la podemos añadir directamente porque contiene valores con información sensible.
+- Vamos a crear un nuevo archivo `02-Products-App/k8s/nestjs-microservicios/templates/orders-ms/secret.yaml` para añadir la variable de entorno `ORDERS_DATABASE_URL`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/orders-ms$ 
+kubectl create secret generic orders-ms-secrets --from-literal=ORDERS_DATABASE_URL="postgresql://neondb_owner:ZZZZZZZZZ@ep-steep-river-a2p3lezj-pooler.eu-central-1.aws.n
+eon.tech/orders-db?sslmode=require"
+secret/orders-ms-secrets created
+```
+
+- Podemos ver el secreto creado ejecutando `kubectl get secrets`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/orders-ms$
+kubectl get secrets
+NAME                                           TYPE                             DATA   AGE
+gcr-json-key                                   kubernetes.io/dockerconfigjson   1      20h
+orders-ms-secrets                              Opaque                           1      67s
+sh.helm.release.v1.nestjs-microservicios.v10   helm.sh/release.v1               1      37m
+sh.helm.release.v1.nestjs-microservicios.v11   helm.sh/release.v1               1      34m
+sh.helm.release.v1.nestjs-microservicios.v12   helm.sh/release.v1               1      30m
+sh.helm.release.v1.nestjs-microservicios.v13   helm.sh/release.v1               1      27m
+sh.helm.release.v1.nestjs-microservicios.v4    helm.sh/release.v1               1      20h
+sh.helm.release.v1.nestjs-microservicios.v5    helm.sh/release.v1               1      20h
+sh.helm.release.v1.nestjs-microservicios.v6    helm.sh/release.v1               1      148m
+sh.helm.release.v1.nestjs-microservicios.v7    helm.sh/release.v1               1      63m
+sh.helm.release.v1.nestjs-microservicios.v8    helm.sh/release.v1               1      58m
+sh.helm.release.v1.nestjs-microservicios.v9    helm.sh/release.v1               1      50m
+```
+
+- Tenemos que añadir las variables de entorno al deployment del microservicio de orders.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/orders-ms/deployment.yaml
+
+```diff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: orders-ms
+  name: orders-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: orders-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms:latest
+        name: orders-ms
+        resources: {}
++       env:
++         - name: PORT
++           # Podemos usar cualquier puerto que queramos ya que es interno
++           value: "3000"
++         - name: NATS_SERVERS
++           value: "nats://nats-server"
++         - name: ORDERS_DATABASE_URL
++           # Se obtiene el valor del secreto `orders-ms-secrets` y se asigna a la variable de entorno `ORDERS_DATABASE_URL`
++           valueFrom:
++             secretKeyRef:
++               name: orders-ms-secrets
++               key: ORDERS_DATABASE_URL
+status: {}
+```
+
+- Vamos a aplicar el deployment al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 15:47:07 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 14
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+ kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+client-gateway-6dfc9847f-826tr   1/1     Running   0          56m
+nats-server-86f8857d9d-rqhfm     1/1     Running   0          70m
+orders-ms-68df7875b5-s5mtv       1/1     Running   0          20s
+products-7b6d948797-ff59z        1/1     Running   0          33m
+```
+
+- Vamos a ver los logs del microservicio de orders-ms.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs orders-ms-68df7875b5-s5mtv
+[Nest] 1  - 04/17/2025, 1:47:19 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 1:47:19 PM     LOG [InstanceLoader] AppModule dependencies initialized +12ms
+[Nest] 1  - 04/17/2025, 1:47:19 PM     LOG [InstanceLoader] NatsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 1:47:19 PM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 1:47:19 PM     LOG [InstanceLoader] OrdersModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 1:47:20 PM     LOG [OrdersService] Connected to database
+[Nest] 1  - 04/17/2025, 1:47:20 PM     LOG [NestMicroservice] Nest microservice successfully started +121ms
+[Nest] 1  - 04/17/2025, 1:47:20 PM     LOG [OrdersMS-Main] OrdersMS Microservice running on port 3000
+```
+
+- Vamos a comprobar si podemos ejecutar el endpoint `02-Products-App/client-gateway/src/orders/orders.http` y vemos que el microservicio de orders está funcionando.
+
+> 02-Products-App/client-gateway/src/orders/orders.http
+
+```http
+# URL del servicio de Kubernetes
+@url = http://localhost:30940/api/orders
+
+### Obtener todos los pedidos
+GET {{url}}?page=1&limit=10&status=PENDING
+```
+
+- Obtenemos esta respuesta:
+
+```JSON
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 2076
+ETag: W/"81c-3hBn+Js+sYD9z3G7nKtMcNKVppg"
+Date: Thu, 17 Apr 2025 13:51:19 GMT
+Connection: close
+
+{
+  "data": [
+    {
+      "id": "5ab9851a-79a8-4dbd-b8c8-ccd72d7f8584",
+      "totalAmount": 350,
+      "totalItems": 3,
+      "status": "PENDING",
+      "paid": false,
+      "paidAt": null,
+      "stripeChargeId": null,
+      "createdAt": "2025-04-14T17:00:52.969Z",
+      "updatedAt": "2025-04-14T17:00:52.969Z"
+    },
+    {
+      "id": "6c6c9766-b355-4761-8123-c030fb8efe4f",
+      "totalAmount": 350,
+      "totalItems": 3,
+      "status": "PENDING",
+      "paid": false,
+      "paidAt": null,
+      "stripeChargeId": null,
+      "createdAt": "2025-04-14T17:00:46.133Z",
+      "updatedAt": "2025-04-14T17:00:46.133Z"
+    },
+    {
+      "id": "748d0f3c-8a3f-4c36-a3f0-398af8ea50de",
+      "totalAmount": 350,
+      "totalItems": 3,
+      "status": "PENDING",
+      "paid": false,
+      "paidAt": null,
+      "stripeChargeId": null,
+      "createdAt": "2025-04-14T17:00:51.190Z",
+      "updatedAt": "2025-04-14T17:00:51.190Z"
+    },
+    ...
+  ],
+  "meta": {
+    "total": 9,
+    "page": 1,
+    "lastPage": 1
+  }
+}
+```
+
+### 12.10 Crear el deployment del microservicio de auth-ms
+
+- Vamos a crear el servicio de auth-ms en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/auth-ms`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+mkdir auth-ms
+juanpabloperez@jpp-PROX15-AMD:~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+cd auth-ms
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/auth-ms$
+kubectl create deployment auth-ms --image=europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms:latest --dry-run=client -o yaml > deployment.yaml
+```
+
+- Podemos ver el archivo `deployment.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/auth-ms/deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: auth-ms
+  name: auth-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: auth-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms:latest
+        name: auth-ms
+        resources: {}
+status: {}
+```
+
+- En este microservicio tenemos dos secretos: `JWT_SECRET` y `AUTH_DATABASE_URL`.
+- Vamos a crear los dos secretos con el siguiente comando:
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/auth-ms$
+kubectl create secret generic auth-ms-secrets --from-literal=JWT_SECRET="CBm2b6nKXXXXXXXYwqDbUmxAJl" --from-literal=AUTH_DATABASE_URL="mongodb+srv://ZZZZZZZZ:YYYYYYYYYYYY@testing.q6ff3cq.mongodb.net/AuthDB"
+secret/auth-ms-secrets created
+```
+
+kubectl create secret generic orders-ms-secrets --from-literal=ORDERS_DATABASE_URL="postgresql://neondb_owner:npg_jGORTl1z5cIC@ep-steep-river-a2p3lezj-pooler.eu-central-1.aws.n
+eon.tech/orders-db?sslmode=require"
+
+- Vamos a añadir las variables de entorno al deployment del microservicio de auth-ms.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/auth-ms/deployment.yaml
+
+```diff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: auth-ms
+  name: auth-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: auth-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms:latest
+        name: auth-ms
+        resources: {}
++       env:
++         - name: PORT
++           value: "3000"
++         - name: NATS_SERVERS
++           value: "nats://nats-server"
++         - name: JWT_SECRET
++           valueFrom:
++             secretKeyRef:
++               name: auth-ms-secrets
++               key: JWT_SECRET
++         - name: AUTH_DATABASE_URL
++           valueFrom:
++             secretKeyRef:
++               name: auth-ms-secrets
++               key: AUTH_DATABASE_URL
+status: {}
+```
+
+- Vamos a aplicar el deployment al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 16:18:58 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 15
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+auth-ms-6f6868f448-jwmbc         1/1     Running   0          28s
+client-gateway-6dfc9847f-826tr   1/1     Running   0          88m
+nats-server-86f8857d9d-rqhfm     1/1     Running   0          102m
+orders-ms-68df7875b5-s5mtv       1/1     Running   0          32m
+products-7b6d948797-ff59z        1/1     Running   0          65m
+```
+
+- Vamos a ver los logs del microservicio de auth-ms.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs auth-ms-6f6868f448-jwmbc
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [InstanceLoader] AppModule dependencies initialized +9ms
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [InstanceLoader] JwtModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [InstanceLoader] AuthModule dependencies initialized +2ms
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [AuthService] MongoDB connected
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [NestMicroservice] Nest microservice successfully started +92ms
+[Nest] 1  - 04/17/2025, 2:19:10 PM     LOG [Auth-ms] Auth Microservice running on port 3000
+```
+
+- Vamos a modificar el archivo `02-Products-App/client-gateway/src/auth/auth.http` para que se pueda acceder al microservicio de auth-ms.
+
+> 02-Products-App/client-gateway/src/auth/auth.http
+
+```http
+@url = http://localhost:30940/api/auth
+
+### Login
+# @name login
+POST {{url}}/login
+Content-Type: application/json
+
+{
+  "email": "usuario@gmail.com",
+  "password": "1234567!02JSJSJSssswd"
+}
+```
+
+- Vamos a comprobar si podemos ejecutar el endpoint `02-Products-App/client-gateway/src/auth/auth.http` y vemos que si microservicio de auth-ms está funcionando.
+
+```JSON
+HTTP/1.1 201 Created
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 338
+ETag: W/"152-YeefwO4M/gkfEVMQE/R1q6iEk7w"
+Date: Thu, 17 Apr 2025 14:43:58 GMT
+Connection: close
+
+{
+  "user": {
+    "id": "67fd1e8f3e959909a8d14283",
+    "email": "usuario@gmail.com",
+    "name": "Usuario XXX"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZmQxZThmM2U5NTk5MDlhOGQxNDI4MyIsImVtYWlsIjoidXN1YXJpb0BnbWFpbC5jb20iLCJuYW1lIjoiVXN1YXJpbyBYWFgiLCJpYXQiOjE3NDQ5MDEwMzgsImV4cCI6MTc0NDkwODIzOH0.zoABZ2ofkeFoZRKydCEr8RBnqpfEpsWwcKmPSgd5bp4"
+}
+```
+
+### 12.11 Crear el deployment del microservicio de payments-ms
+
+- Vamos a crear el servicio de payments-ms en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/payments-ms`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+mkdir payments-ms
+juanpabloperez@jpp-PROX15-AMD:~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates$
+cd payments-ms
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/payments-ms$
+kubectl create deployment payments-ms --image=europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms:latest --dry-run=client -o yaml > deployment.yaml
+```
+
+- Podemos ver el archivo `deployment.yaml` creado.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/payments-ms/deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: payments-ms
+  name: payments-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: payments-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms:latest
+        name: payments-ms
+        resources: {}
+status: {}
+```
+
+- Vamos a crear el secret para el microservicio de payments-ms.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/payments-ms$
+kubectl create secret generic payments-ms-secrets --from-literal=STRIPE_SECRET="sk_test_xxxxx" --from-literal=STRIPE_ENDPOINT_SECRET="whsec_yyyyy"
+secret/payments-ms-secrets created
+```
+
+- Vamos a añadir las variables de entorno al deployment del microservicio de payments-ms.
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/payments-ms/deployment.yaml
+
+```diff
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: payments-ms
+  name: payments-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: payments-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/payments-ms:latest
+        name: payments-ms
+        resources: {}
++       env:
++         - name: PORT
++           value: "3000"
++         - name: NATS_SERVERS
++           value: "nats://nats-server"
++         - name: STRIPE_SUCCESS_URL
++           value: "http://localhost:3000/payments/success"
++         - name: STRIPE_CANCEL_URL
++           value: "http://localhost:3000/payments/cancel"
++         - name: STRIPE_SECRET
++           valueFrom:
++             secretKeyRef:
++               name: payments-ms-secrets
++               key: STRIPE_SECRET
++         - name: STRIPE_ENDPOINT_SECRET
++           valueFrom:
++             secretKeyRef:
++               name: payments-ms-secrets
++               key: STRIPE_ENDPOINT_SECRET
+status: {}
+```
+
+- Vamos a aplicar el deployment al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 17:07:35 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 18
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los pods en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+auth-ms-6f6868f448-jwmbc         1/1     Running   0          52m
+client-gateway-6dfc9847f-826tr   1/1     Running   0          140m
+nats-server-86f8857d9d-rqhfm     1/1     Running   0          154m
+orders-ms-68df7875b5-s5mtv       1/1     Running   0          84m
+payments-ms-5b796c9cd5-5tq4m     1/1     Running   0          5s
+products-7b6d948797-ff59z        1/1     Running   0          117m
+```
+
+- Vamos a ver los logs del microservicio de payments-ms.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl logs payments-ms-5b796c9cd5-5tq4m
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [InstanceLoader] AppModule dependencies initialized +16ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [InstanceLoader] NatsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [InstanceLoader] PaymentsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [NestMicroservice] Nest microservice successfully started +130ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [RoutesResolver] PaymentsController {/payments}: +7ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [RouterExplorer] Mapped {/payments/create-payment-session, POST} route +4ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [RouterExplorer] Mapped {/payments/success, GET} route +3ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [RouterExplorer] Mapped {/payments/cancel, GET} route +1ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [RouterExplorer] Mapped {/payments/webhook, POST} route +1ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [NestApplication] Nest application successfully started +3ms
+[Nest] 1  - 04/17/2025, 3:11:31 PM     LOG [Payments-ms] Payments Microservice running on port 3000
+```
+
+- Vamos a crear un nuevo pedido desde el archivo `02-Products-App/client-gateway/src/payments/payments.http` para que nos aseguremos de que el microservicio de payments-ms está funcionando.
+
+> 02-Products-App/client-gateway/src/payments/payments.http
+
+```http
+# URL del servicio de Kubernetes
+@url = http://localhost:30940/api/orders
+
+### Crear un nuevo pedido
+POST {{url}}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "productId": 3,
+      "quantity": 2,
+      "price": 150
+    },
+    {
+      "productId": 5,
+      "quantity": 1,
+      "price": 50
+    }    
+  ]
+}
+```
+
+- Recibimos la respuesta:
+
+```JSON
+HTTP/1.1 201 Created
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 771
+ETag: W/"303-HklWdu83E76AN8UWpJqL63fJU2Q"
+Date: Thu, 17 Apr 2025 15:14:58 GMT
+Connection: close
+
+{
+  "order": {
+    "id": "3e9d30cf-08e0-4dfc-9bf0-ed56170ffe20",
+    "totalAmount": 350,
+    "totalItems": 3,
+    "status": "PENDING",
+    "paid": false,
+    "paidAt": null,
+    "stripeChargeId": null,
+    "createdAt": "2025-04-17T15:14:55.592Z",
+    "updatedAt": "2025-04-17T15:14:55.592Z",
+    "OrderItem": [
+      {
+        "price": 150,
+        "quantity": 2,
+        "productId": 3,
+        "name": "Mouse"
+      },
+      {
+        "price": 50,
+        "quantity": 1,
+        "productId": 5,
+        "name": "Audífonos"
+      }
+    ]
+  },
+  "paymentSession": {
+    "cancelUrl": "http://localhost:3000/payments/cancel",
+    "successUrl": "http://localhost:3000/payments/success",
+    "url": "https://checkout.stripe.com/c/pay/cs_test_b10GisGtIeDMkfVutJxFX5xLU5wvABo3Dt6k2Kqvg0W7kbC5y2tOnr831c#fidkdWxOYHwnPyd1blpxYHZxWkRPTlx2VkdOVGh%2FZ3NdSjNmMkFMVFdgZDU1SFBuMElvRmYnKSdjd2poVmB3c2B3Jz9xd3BgKSdpZHxqcHFRfHVgJz8naHBpcWxabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl"
+  }
+}
+```

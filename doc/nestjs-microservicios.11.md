@@ -124,7 +124,7 @@ To take a quick anonymous survey, run:
   $ gcloud survey
 ```
 
-### 11.06 Inicialiar el proyecto en Google Cloud Platform
+### 11.06 Inicializar el proyecto en Google Cloud Platform
 
 #### 11.06.01 Deberíamos comprobar si tenemos una cuenta configurada en nuestra máquina con este comando:
 
@@ -201,7 +201,7 @@ Activated [production].
 
 - Configuración de la cuenta de producción:
 
-```bash 
+```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$
 gcloud config set account ixxo@exxxz.onxxne
 Updated property [core/account].

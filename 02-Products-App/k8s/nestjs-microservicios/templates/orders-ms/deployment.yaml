@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: orders-ms
+  name: orders-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: orders-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/orders-ms:latest
+        name: orders-ms
+        resources: {}
+        env:
+          - name: PORT
+            # Podemos usar cualquier puerto que queramos ya que es interno
+            value: "3000"
+          - name: NATS_SERVERS
+            value: "nats://nats-server"
+          - name: ORDERS_DATABASE_URL
+            # Se obtiene el valor del secreto `orders-ms-secrets` y se asigna a la variable de entorno `ORDERS_DATABASE_URL`
+            valueFrom:
+              secretKeyRef:
+                name: orders-ms-secrets
+                key: ORDERS_DATABASE_URL
+status: {}

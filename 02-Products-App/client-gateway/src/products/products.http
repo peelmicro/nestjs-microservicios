@@ -1,5 +1,8 @@
 @url = http://localhost:3000/api/products
 
+# URL del servicio de Kubernetes
+@url = http://localhost:30940/api/products
+
 ### Crear un nuevo producto
 POST {{url}}
 Content-Type: application/json

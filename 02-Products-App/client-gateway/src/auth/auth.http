@@ -1,5 +1,8 @@
 @url = http://localhost:3000/api/auth
 
+# URL del microservicio de auth-ms
+@url = http://localhost:30940/api/auth
+
 ### Login
 # @name login
 POST {{url}}/login

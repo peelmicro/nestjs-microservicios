@@ -1,5 +1,8 @@
 @url = http://localhost:3000/api/orders
 
+# URL del servicio de Kubernetes
+@url = http://localhost:30940/api/orders
+
 ### Crear un nuevo pedido
 POST {{url}}
 Content-Type: application/json

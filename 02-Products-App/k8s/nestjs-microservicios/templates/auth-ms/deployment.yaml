@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: auth-ms
+  name: auth-ms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-ms
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: auth-ms
+    spec:
+      containers:
+      - image: europe-southwest1-docker.pkg.dev/nestjs-microservicios-456909/nestjs-microservicios/auth-ms:latest
+        name: auth-ms
+        resources: {}
+        env:
+          - name: PORT
+            value: "3000"
+          - name: NATS_SERVERS
+            value: "nats://nats-server"
+          - name: JWT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: auth-ms-secrets
+                key: JWT_SECRET
+          - name: AUTH_DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: auth-ms-secrets
+                key: AUTH_DATABASE_URL
+status: {} 

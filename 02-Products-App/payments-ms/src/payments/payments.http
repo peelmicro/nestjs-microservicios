@@ -1,5 +1,8 @@
 @url = http://localhost:3003/payments
 
+# URL del servicio de payment-ms
+@url = http://192.168.65.9:30653/payments
+
 ### Crear una sesión de pago
 POST {{url}}/create-payment-session
 Content-Type: application/json

@@ -4,6 +4,7 @@ import { PaymentSessionDto } from './dto/payment-session.dto';
 import { Request, Response } from 'express'
 import { MessagePattern } from '@nestjs/microservices';
 
+const debug = true
 @Controller('payments')
 export class PaymentsController {
 
@@ -33,10 +34,22 @@ export class PaymentsController {
     }
   }
 
-
   @Post('/webhook')
   async stripeWebhook(@Req() req: Request, @Res() res: Response) {
-    // this.logger.log(`Webhook received`, JSON.stringify(req.body, null, 2));
-    return this.paymentsService.stripeWebhook(req, res);
+    if (debug) {
+      this.logger.debug('Webhook request received');
+      this.logger.debug(`Headers: ${JSON.stringify(req.headers)}`);
+      this.logger.debug(`Body: ${JSON.stringify(req.body)}`);
+    }
+    try {
+      const result = await this.paymentsService.stripeWebhook(req, res);
+      if (debug) {
+        this.logger.debug('Webhook processed successfully');
+      }
+      return result;
+    } catch (error) {
+      this.logger.error(`Webhook error: ${error.message}`);
+      return res.status(500).json({ error: error.message });
+    }
   }  
 }

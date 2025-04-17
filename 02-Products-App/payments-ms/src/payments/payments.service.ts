@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import { NATS_SERVICE } from 'src/config';
 import { ClientProxy } from '@nestjs/microservices';
 
+const debug = true
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -52,6 +53,9 @@ export class PaymentsService {
   }
 
   async stripeWebhook(req: Request, res: Response) {
+    if (debug) {    
+      this.logger.debug('Processing webhook in service');
+    }
     const sig = req.headers['stripe-signature'];
 
     if (!sig) {
@@ -63,8 +67,14 @@ export class PaymentsService {
 
     // Real
     const endpointSecret = envs.stripeEndpointSecret;
+    if (debug ) {
+      this.logger.debug(`Using endpoint secret: ${endpointSecret ? 'present' : 'missing'}`);
+    }
 
     try {
+      if (debug) {
+        this.logger.debug('Constructing Stripe event');
+      }
       event = this.stripe.webhooks.constructEvent(
         req['rawBody'],
         sig,
@@ -80,7 +90,9 @@ export class PaymentsService {
       return;
     }
 
-    this.logger.log(`Event type received: ${event.type}`);
+    if (debug ) {
+      this.logger.debug(`Event type received: ${event.type}`);
+    }
 
     switch (event.type) {
       case 'charge.succeeded':
@@ -91,14 +103,22 @@ export class PaymentsService {
           receiptUrl: chargeSucceeded.receipt_url,
         }
 
+        if (debug) {
+          this.logger.debug('Emitting payment.succeeded event');
+        }
         // It doesn't wait for the response from the microservice of orders
         this.client.emit('payment.succeeded', payload );
         break;
 
       default:
-        this.logger.log(`Event ${event.type} not handled`);
+        if (debug) {
+          this.logger.debug(`Event ${event.type} not handled`);
+        }
     }
 
+    if (debug) {
+      this.logger.debug('Sending final response');
+    }
     return res.status(200).json({ sig });
   }
 }
