@@ -1840,3 +1840,212 @@ Connection: close
   }
 }
 ```
+
+### 12.12 Crear un nuevo servicio de payment-ms para que stripe pueda mandar los webhooks
+
+- Vamos a crear el servicio de payment-ms en el directorio `02-Products-App/k8s/nestjs-microservicios/templates/payment-ms`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/payment-ms$
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios/templates/payment-ms$
+kubectl create service nodeport payments-ms --tcp=3000 --dry-run=client -o yaml > service.yaml
+```
+
+- Podemos ver el archivo `service.yaml` creado. 
+
+> 02-Products-App/k8s/nestjs-microservicios/templates/payment-ms/service.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: payments-ms
+  name: payments-ms
+spec:
+  ports:
+  - name: "3000"
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: payments-ms
+  type: NodePort
+status:
+  loadBalancer: {}
+```
+
+- Vamos a aplicar el servicio al cluster usando `helm upgrade`.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+helm upgrade nestjs-microservicios .
+Release "nestjs-microservicios" has been upgraded. Happy Helming!
+NAME: nestjs-microservicios
+LAST DEPLOYED: Thu Apr 17 17:35:28 2025
+NAMESPACE: default
+STATUS: deployed
+REVISION: 20
+TEST SUITE: None
+```
+
+- Vamos a ver el estado de los servicios en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get services
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+client-gateway   NodePort    10.107.98.249   <none>        3000:30940/TCP   5h33m
+kubernetes       ClusterIP   10.96.0.1       <none>        443/TCP          25h
+nats-server      ClusterIP   10.108.36.158   <none>        4222/TCP         4h3m
+payments-ms      NodePort    10.99.140.223   <none>        3000:32697/TCP   4s
+```
+
+- Vemos que el servicio de payment-ms está funcionando y que se puede acceder desde el puerto 32697.
+- Vamos a actualizar el archivo `02-Products-App/payments-ms/src/payments/payments.http` para que se pueda acceder al servicio de payment-ms.
+
+> 02-Products-App/payments-ms/src/payments/payments.http
+
+```http
+@url = http://localhost:3003/payments
+
+# URL del servicio de payment-ms
+@url = http://localhost:32697/payments
+
+### Crear una sesión de pago
+POST {{url}}/create-payment-session
+Content-Type: application/json
+
+{
+  "orderId": "1234567890",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "Producto 1",
+      "price": 100,
+      "quantity": 1
+    },
+    {
+      "name": "Producto 2",
+      "price": 200,
+      "quantity": 2
+    }
+  ]
+}
+
+### Obtener confirmación de pago
+GET {{url}}/success
+
+### Obtener cancelación de pago
+GET {{url}}/cancel
+
+### Obtener webhook de Stripe
+POST {{url}}/webhook
+Content-Type: application/json
+
+{
+  "event": "payment_intent.succeeded"
+}
+```
+
+- Si ejecutamos el endpoint `POST {{url}}/webhook` con el evento `payment_intent.succeeded` y le damos a `Execute` veremos que se ejecuta el webhook con esta respuesta:
+
+```JSON
+HTTP/1.1 400 Bad Request
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 36
+ETag: W/"24-72GsP6PXHQUkxvXqWR2GlU3asEo"
+Date: Thu, 17 Apr 2025 16:48:17 GMT
+Connection: close
+
+{
+  "error": "Missing stripe signature"
+}
+```
+
+- Vamos a ver los pods que tenemos en el cluster.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$ kubectl get pods
+NAME                             READY   STATUS    RESTARTS   AGE
+auth-ms-6f6868f448-jwmbc         1/1     Running   0          150m
+client-gateway-6dfc9847f-826tr   1/1     Running   0          3h58m
+nats-server-86f8857d9d-rqhfm     1/1     Running   0          4h11m
+orders-ms-68df7875b5-s5mtv       1/1     Running   0          3h2m
+payments-ms-5b796c9cd5-mhp5m     1/1     Running   0          11m
+products-7b6d948797-ff59z        1/1     Running   0          3h35m
+```
+
+- Podemos ver los logs del microservicio de payments-ms para ver que se ha ejecutado el webhook.
+
+```bash
+juanpabloperez@jpp-PROX15-AMD:~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$ kubectl logs payments-ms-5b796c9cd5-mhp5m
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [NestFactory] Starting Nest application...
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [InstanceLoader] AppModule dependencies initialized +16ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [InstanceLoader] NatsModule dependencies initialized +1ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [InstanceLoader] ClientsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [InstanceLoader] PaymentsModule dependencies initialized +0ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [NestMicroservice] Nest microservice successfully started +38ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [RoutesResolver] PaymentsController {/payments}: +3ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [RouterExplorer] Mapped {/payments/create-payment-session, POST} route +3ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [RouterExplorer] Mapped {/payments/success, GET} route +1ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [RouterExplorer] Mapped {/payments/cancel, GET} route +0ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [RouterExplorer] Mapped {/payments/webhook, POST} route +0ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [NestApplication] Nest application successfully started +2ms
+[Nest] 1  - 04/17/2025, 4:37:27 PM     LOG [Payments-ms] Payments Microservice running on port 3000
+[Nest] 1  - 04/17/2025, 4:48:17 PM   DEBUG [PaymentsController] Webhook request received
+[Nest] 1  - 04/17/2025, 4:48:17 PM   DEBUG [PaymentsController] Headers: {"user-agent":"vscode-restclient","content-type":"application/json","accept-encoding":"gzip, deflate","content-length":"41","cookie":"session=eyJ1c2VySWQiOiI2NDIwODM0MjdlNWFiZGM5MDAxZmI2Y2YifQ==; session.sig=CXtY66iH39qSrP48bIBKPkmABmw","host":"localhost:32697","connection":"close"}
+[Nest] 1  - 04/17/2025, 4:48:17 PM   DEBUG [PaymentsController] Body: {"event":"payment_intent.succeeded"}
+[Nest] 1  - 04/17/2025, 4:48:17 PM   DEBUG [PaymentsService] Processing webhook in service
+[Nest] 1  - 04/17/2025, 4:48:17 PM   ERROR [PaymentsService] Missing stripe signature
+[Nest] 1  - 04/17/2025, 4:48:17 PM   DEBUG [PaymentsController] Webhook processed successfully
+```
+
+### 12.13 Ver el contenido de un secret en el cluster
+
+- Para editar un secret podemos borrarlo y crear uno nuevo.
+- Pero, en este caso, vamos a ver el contenido del secret de payments-ms.
+- Vamos a obtener el listado de secrets.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get secrets
+NAME                                           TYPE                             DATA   AGE
+auth-ms-secrets                                Opaque                           2      161m
+gcr-json-key                                   kubernetes.io/dockerconfigjson   1      23h
+orders-ms-secrets                              Opaque                           1      3h14m
+payments-ms-secrets                            Opaque                           2      112m
+sh.helm.release.v1.nestjs-microservicios.v17   helm.sh/release.v1               1      132m
+sh.helm.release.v1.nestjs-microservicios.v18   helm.sh/release.v1               1      107m
+sh.helm.release.v1.nestjs-microservicios.v19   helm.sh/release.v1               1      103m
+sh.helm.release.v1.nestjs-microservicios.v20   helm.sh/release.v1               1      79m
+sh.helm.release.v1.nestjs-microservicios.v21   helm.sh/release.v1               1      46m
+sh.helm.release.v1.nestjs-microservicios.v22   helm.sh/release.v1               1      42m
+sh.helm.release.v1.nestjs-microservicios.v23   helm.sh/release.v1               1      23m
+sh.helm.release.v1.nestjs-microservicios.v24   helm.sh/release.v1               1      18m
+sh.helm.release.v1.nestjs-microservicios.v25   helm.sh/release.v1               1      16m
+sh.helm.release.v1.nestjs-microservicios.v26   helm.sh/release.v1               1      8m50s                              2      11m
+```
+
+- Vamos a obtener el contenido del secret auth-ms-secrets.
+
+```bash
+~/Training/microservices/nestjs-microservicios/02-Products-App/k8s/nestjs-microservicios$
+kubectl get secrets auth-ms-secrets -o yaml
+apiVersion: v1
+data:
+  AUTH_DATABASE_URL: bW9uZ29kYitzcnY6LyXXXXXXXXXXXXXXXXXLnE2ZmYzY3EubW9uZ29kYi5uZXQvQXV0aERC
+  JWT_SECRET: Q0JtMmI2DDDDDDDDDDDDDdxRGJVbXhBSmw=
+kind: Secret
+metadata:
+  creationTimestamp: "2025-04-17T14:13:35Z"
+  name: auth-ms-secrets
+  namespace: default
+  resourceVersion: "65737"
+  uid: a9f169f6-73ea-4d00-8978-da3ec12cc22e
+type: Opaque
+```
+
+- El valor está codificado en base64. Por lo tanto, podemos decodificarlo para ver el contenido.
