@@ -1,0 +1,7 @@
+@url = http://localhost:3000/
+
+# URL del microservicio de client-gateway
+# @url = http://localhost:30940/
+
+### Comprobar que el healthcheck está funcionando
+GET {{url}}

@@ -1,0 +1,7 @@
+@url = http://localhost:3003/
+
+# URL del servicio de payment-ms
+# @url = http://localhost:32697/
+
+### Comprobar que el healthcheck está funcionando
+GET {{url}}
