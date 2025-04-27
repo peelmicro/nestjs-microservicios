@@ -10,7 +10,7 @@
 - Es una sección que es agnóstica de la plataforma que usemos, ya sea `AWS`, `GCP`, `Azure`, etc, excepto que usamos las imágenes de Docker ya desplegadas en Google Container Registry.
 
 - Un Cluster de Kubernetes tiene los siguientes componentes esenciales:
-  - `Master Node`: 
+  - `Master Node`:
     - Es el nodo maestro del cluster.
     - Controla toda la infraestructura del cluster.
     - Puede tener réplicas de sí mismo para alta disponibilidad.
@@ -1488,9 +1488,6 @@ status: {}
 kubectl create secret generic auth-ms-secrets --from-literal=JWT_SECRET="CBm2b6nKXXXXXXXYwqDbUmxAJl" --from-literal=AUTH_DATABASE_URL="mongodb+srv://ZZZZZZZZ:YYYYYYYYYYYY@testing.q6ff3cq.mongodb.net/AuthDB"
 secret/auth-ms-secrets created
 ```
-
-kubectl create secret generic orders-ms-secrets --from-literal=ORDERS_DATABASE_URL="postgresql://neondb_owner:npg_jGORTl1z5cIC@ep-steep-river-a2p3lezj-pooler.eu-central-1.aws.n
-eon.tech/orders-db?sslmode=require"
 
 - Vamos a añadir las variables de entorno al deployment del microservicio de auth-ms.
 

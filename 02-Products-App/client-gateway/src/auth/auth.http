@@ -3,6 +3,9 @@
 # URL del microservicio de auth-ms
 @url = http://localhost:30940/api/auth
 
+# URL del microservicio de auth-ms desde el Ingress
+@url = http://34.8.174.133/api/auth
+
 ### Login
 # @name login
 POST {{url}}/login

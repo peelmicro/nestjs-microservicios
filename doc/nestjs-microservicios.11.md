@@ -17,7 +17,7 @@
 
 ![Start free](nestjs-microservicios.11.001.png)
 
-- Ingresamos con nuestro correo electrónico y contraseña y clicamos en `Agree and continue`.
+- Nos registramos con nuestro correo electrónico y contraseña y clicamos en `Agree and continue`.
 
 ![Ingresar](nestjs-microservicios.11.002.png)
 
@@ -157,10 +157,10 @@ gcloud auth login --account=your-test-account@email.com
 gcloud auth login --account=ixxo@exxxz.onxxne
 ```
 
-#### 11.06.03 Configurar los projectos
+#### 11.06.03 Configurar los proyectos
 
-- También podríamos crear configuraciones para cada projecto:
-- Para el nuevo projecto:
+- También podríamos crear configuraciones para cada proyecto:
+- Para el nuevo proyecto:
 
 ```bash
 gcloud config configurations create nestjs-microservicios
@@ -168,7 +168,7 @@ gcloud config set account your-test-account@email.com
 gcloud config set project nestjs-microservicio-project-id
 ```
 
-- Para volver el projecto de producción:
+- Para volver el proyecto de producción:
 
 ```bash
 gcloud config configurations create production
@@ -176,10 +176,10 @@ gcloud config set account ixxo@exxxz.onxxne
 gcloud config set project production-project-id
 ```
 
-- Una vez creados los projectos, podemos iniciar cada uno de ellos con los commandos:
+- Una vez creados los proyectos, podemos iniciar cada uno de ellos con los commandos:
 
 ```bash
-cloud config configurations activate nestjs-microservicios
+gcloud config configurations activate nestjs-microservicios
 ```
 
 o
@@ -207,7 +207,7 @@ gcloud config set account ixxo@exxxz.onxxne
 Updated property [core/account].
 ```
 
-- Configuración del projecto de producción:
+- Configuración del proyecto de producción:
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -248,7 +248,7 @@ Your current project is [None].  You can change this setting by running:
   $ gcloud config set project PROJECT_ID
 ```
 
-- Configuración del projecto de desarrollo:
+- Configuración del proyecto de desarrollo:
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -256,7 +256,7 @@ gcloud config set project nestjs-microservicios-456909
 Updated property [core/project].
 ```
 
-#### 11.06.06 Seleccionar el projecto de producción
+#### 11.06.06 Seleccionar el proyecto de producción
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -264,7 +264,7 @@ gcloud config configurations activate production
 Activated [production].
 ```
 
-- Tenemos que asegurarnos de que estamos en el projecto de producción:
+- Tenemos que asegurarnos de que estamos en el proyecto de producción:
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -284,7 +284,7 @@ Your active configuration is: [production]
 gcloud auth login --account=ixxo@exxxz.onxxne
 ```
 
-#### 11.06.07 Seleccionar el projecto de desarrollo
+#### 11.06.07 Seleccionar el proyecto de desarrollo
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -292,7 +292,7 @@ gcloud config configurations activate nestjs-microservicios
 Activated [nestjs-microservicios].
 ```
 
-- Tenemos que asegurarnos de que estamos en el projecto de desarrollo:
+- Tenemos que asegurarnos de que estamos en el proyecto de desarrollo:
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 
@@ -309,7 +309,7 @@ Your active configuration is: [nestjs-microservicios]
 ### 11.07 Inicializar el proyecto en Google Cloud Platform
 
 - Vamos a inicializar el proyecto en Google Cloud Platform:
-- Tenemos que asegurarnos de que estamos en el projecto de desarrollo:
+- Tenemos que asegurarnos de que estamos en el proyecto de desarrollo:
 
 ```bash
 ~/Training/microservices/nestjs-microservicios/02-Products-App$ 

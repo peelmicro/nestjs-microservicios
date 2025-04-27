@@ -3,5 +3,8 @@
 # URL del microservicio de client-gateway
 # @url = http://localhost:30940/
 
+# URL del microservicio de client-gateway desde el Ingress
+@url = http://34.8.174.133/
+
 ### Comprobar que el healthcheck está funcionando
 GET {{url}}

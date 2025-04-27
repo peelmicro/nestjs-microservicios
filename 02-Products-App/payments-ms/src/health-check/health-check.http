@@ -3,5 +3,8 @@
 # URL del servicio de payment-ms
 # @url = http://localhost:32697/
 
+# URL del servicio de payment-ms desde el Ingress
+@url = http://34.49.144.102/
+
 ### Comprobar que el healthcheck está funcionando
 GET {{url}}
