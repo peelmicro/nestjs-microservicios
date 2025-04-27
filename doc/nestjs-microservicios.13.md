@@ -1126,7 +1126,7 @@ kubectl delete ingress payments-ms-ingress -n default
 ingress.networking.k8s.io "payments-ms-ingress" deleted
 ```
 
-### 13.10 Seleccionar qué contexto usara `kubectl`
+### 13.10 Seleccionar qué contexto usará `kubectl`
 
 - Para poder decidir is kubectl use un contexto local con Docker Desktop o el que tenemos configurado en GCP con GKE tenemos que seleccionar el contexto.
 - Podemos ver los contextos que tenemos disponibles con el siguiente comando:
